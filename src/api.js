@@ -25,6 +25,32 @@ export async function uploadFile(file) {
   return data.url;
 }
 
+// Fetch a path as a Blob (with auth) and trigger a browser download.
+export async function downloadBlob(path, filename) {
+  const token = getToken();
+  const res = await fetch(`${API_URL}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (res.status === 401) {
+    setToken(null);
+    window.location.href = "/login";
+    return;
+  }
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "Download failed");
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 export async function api(path, options = {}) {
   const headers = { ...(options.headers || {}) };
   if (options.body && !headers["Content-Type"]) {

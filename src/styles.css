@@ -203,6 +203,7 @@ th {
 .badge.cancelled { background: #fee2e2; color: #b91c1c; }
 .badge.paid { background: #dcfce7; color: #15803d; }
 .badge.unpaid { background: rgba(244, 185, 66, 0.2); color: #a5741a; }
+.badge.failed { background: #ffedd5; color: #c2410c; }
 .badge.refunded { background: #fee2e2; color: #b91c1c; }
 
 .day-header {

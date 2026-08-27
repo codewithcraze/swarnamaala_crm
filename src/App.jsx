@@ -5,7 +5,9 @@ import Login from "./pages/Login.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Users from "./pages/Users.jsx";
 import Orders from "./pages/Orders.jsx";
+import OrderDetail from "./pages/OrderDetail.jsx";
 import Referrals from "./pages/Referrals.jsx";
+import Coupons from "./pages/Coupons.jsx";
 import Blogs from "./pages/Blogs.jsx";
 import BlogEditor from "./pages/BlogEditor.jsx";
 
@@ -27,7 +29,9 @@ export default function App() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/users" element={<Users />} />
         <Route path="/orders" element={<Orders />} />
+        <Route path="/orders/:id" element={<OrderDetail />} />
         <Route path="/referrals" element={<Referrals />} />
+        <Route path="/coupons" element={<Coupons />} />
         <Route path="/blogs" element={<Blogs />} />
         <Route path="/blogs/:id" element={<BlogEditor />} />
       </Route>

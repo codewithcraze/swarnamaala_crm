@@ -7,6 +7,7 @@ const LINKS = [
   { to: "/users", label: "Users" },
   { to: "/orders", label: "Orders" },
   { to: "/referrals", label: "Referrals" },
+  { to: "/coupons", label: "Coupons" },
   { to: "/blogs", label: "Blog" },
 ];
 
