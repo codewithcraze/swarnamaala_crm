@@ -1,6 +1,21 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import {
+  Box,
+  Card,
+  CardContent,
+  Typography,
+  TextField,
+  Button,
+  Alert,
+  Stack,
+  FormControlLabel,
+  Checkbox,
+  Skeleton,
+  CircularProgress,
+} from "@mui/material";
 import { api, uploadFile } from "../api.js";
+import { PageHeader } from "../components/ui.jsx";
 import RichTextEditor from "../components/RichTextEditor.jsx";
 
 const EMPTY = {
@@ -75,129 +90,183 @@ export default function BlogEditor() {
     }
   }
 
-  if (loading) return <p className="page-sub">Loading...</p>;
+  if (loading) {
+    return (
+      <Box sx={{ maxWidth: 880 }}>
+        <Skeleton width={240} height={40} sx={{ mb: 2 }} />
+        <Skeleton variant="rounded" height={420} />
+      </Box>
+    );
+  }
 
   return (
-    <div style={{ maxWidth: 860 }}>
-      <h1 className="page-title">{isNew ? "New blog post" : "Edit blog post"}</h1>
-      <p className="page-sub">Content is saved as HTML and shown on the website.</p>
+    <Box sx={{ maxWidth: 880 }}>
+      <PageHeader
+        title={isNew ? "New blog post" : "Edit blog post"}
+        subtitle="Content is saved as HTML and shown on the website."
+      />
 
-      {error && <div className="error" style={{ marginBottom: 16 }}>{error}</div>}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
 
-      <div className="card">
-        <div className="form-row">
-          <label className="field-label">Title</label>
-          <input
-            className="input"
-            value={form.title}
-            onChange={(e) => set("title", e.target.value)}
-            placeholder="Blog title"
-          />
-        </div>
-
-        <div className="form-row">
-          <label className="field-label">Slug (URL) — leave blank to auto-generate</label>
-          <input
-            className="input"
-            value={form.slug || ""}
-            onChange={(e) => set("slug", e.target.value)}
-            placeholder="my-blog-post"
-          />
-        </div>
-
-        <div className="form-row">
-          <label className="field-label">Short description</label>
-          <textarea
-            className="input"
-            value={form.description}
-            onChange={(e) => set("description", e.target.value)}
-            placeholder="A one or two line summary shown on cards and search results."
-          />
-        </div>
-
-        <div className="form-row">
-          <label className="field-label">Cover image</label>
-          {form.coverImage && (
-            <img
-              src={form.coverImage}
-              alt="cover"
-              style={{ width: "100%", maxHeight: 240, objectFit: "cover", borderRadius: 12, marginBottom: 8 }}
+      <Card>
+        <CardContent>
+          <Stack spacing={2.5}>
+            <TextField
+              label="Title"
+              fullWidth
+              size="small"
+              value={form.title}
+              onChange={(e) => set("title", e.target.value)}
+              placeholder="Blog title"
             />
-          )}
-          <div style={{ display: "flex", gap: 8 }}>
-            <label className="btn ghost" style={{ cursor: "pointer" }}>
-              {uploadingCover ? "Uploading..." : form.coverImage ? "Change image" : "Upload image"}
-              <input type="file" accept="image/*" hidden onChange={handleCover} />
-            </label>
-            {form.coverImage && (
-              <button className="btn ghost" onClick={() => set("coverImage", "")}>
-                Remove
-              </button>
-            )}
-          </div>
-        </div>
+            <TextField
+              label="Slug (URL) — leave blank to auto-generate"
+              fullWidth
+              size="small"
+              value={form.slug || ""}
+              onChange={(e) => set("slug", e.target.value)}
+              placeholder="my-blog-post"
+            />
+            <TextField
+              label="Short description"
+              fullWidth
+              size="small"
+              multiline
+              minRows={2}
+              value={form.description}
+              onChange={(e) => set("description", e.target.value)}
+              placeholder="A one or two line summary shown on cards and search results."
+            />
 
-        <div className="form-row">
-          <label className="field-label">Content</label>
-          <RichTextEditor value={form.content} onChange={(html) => set("content", html)} />
-        </div>
-      </div>
+            <Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                Cover image
+              </Typography>
+              {form.coverImage && (
+                <Box
+                  component="img"
+                  src={form.coverImage}
+                  alt="cover"
+                  sx={{
+                    width: "100%",
+                    maxHeight: 240,
+                    objectFit: "cover",
+                    borderRadius: 2,
+                    mb: 1,
+                    border: "1px solid",
+                    borderColor: "divider",
+                  }}
+                />
+              )}
+              <Stack direction="row" spacing={1}>
+                <Button
+                  component="label"
+                  variant="outlined"
+                  color="inherit"
+                  disabled={uploadingCover}
+                  startIcon={uploadingCover ? <CircularProgress size={16} /> : null}
+                  sx={{ borderColor: "divider", color: "text.secondary" }}
+                >
+                  {uploadingCover ? "Uploading…" : form.coverImage ? "Change image" : "Upload image"}
+                  <input type="file" accept="image/*" hidden onChange={handleCover} />
+                </Button>
+                {form.coverImage && (
+                  <Button
+                    variant="outlined"
+                    color="inherit"
+                    onClick={() => set("coverImage", "")}
+                    sx={{ borderColor: "divider", color: "text.secondary" }}
+                  >
+                    Remove
+                  </Button>
+                )}
+              </Stack>
+            </Box>
 
-      <div className="card" style={{ marginTop: 16 }}>
-        <h2 style={{ fontSize: 16, marginTop: 0 }}>SEO settings</h2>
-        <div className="form-row">
-          <label className="field-label">Meta title</label>
-          <input
-            className="input"
-            value={form.metaTitle}
-            onChange={(e) => set("metaTitle", e.target.value)}
-            placeholder="Defaults to the post title"
-          />
-        </div>
-        <div className="form-row">
-          <label className="field-label">Meta description</label>
-          <textarea
-            className="input"
-            value={form.metaDescription}
-            onChange={(e) => set("metaDescription", e.target.value)}
-            placeholder="Defaults to the short description. ~155 characters recommended."
-          />
-        </div>
-        <div className="form-row">
-          <label className="field-label">Meta keywords (comma separated)</label>
-          <input
-            className="input"
-            value={form.metaKeywords}
-            onChange={(e) => set("metaKeywords", e.target.value)}
-            placeholder="custom magnets, photo gifts, fridge magnets"
-          />
-        </div>
-        <div className="form-row">
-          <label className="field-label">Author</label>
-          <input
-            className="input"
-            value={form.author}
-            onChange={(e) => set("author", e.target.value)}
-          />
-        </div>
-        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
-          <input
-            type="checkbox"
-            checked={form.published}
-            onChange={(e) => set("published", e.target.checked)}
-          />
-          Published (visible on the website)
-        </label>
-      </div>
+            <Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                Content
+              </Typography>
+              <RichTextEditor value={form.content} onChange={(html) => set("content", html)} />
+            </Box>
+          </Stack>
+        </CardContent>
+      </Card>
 
-      <div style={{ marginTop: 16, display: "flex", gap: 10 }}>
-        <button className="btn" onClick={save} disabled={saving}>
-          {saving ? "Saving..." : "Save post"}
-        </button>
-        <button className="btn ghost" onClick={() => navigate("/blogs")}>
+      <Card sx={{ mt: 2 }}>
+        <CardContent>
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            SEO settings
+          </Typography>
+          <Stack spacing={2.5}>
+            <TextField
+              label="Meta title"
+              fullWidth
+              size="small"
+              value={form.metaTitle}
+              onChange={(e) => set("metaTitle", e.target.value)}
+              placeholder="Defaults to the post title"
+            />
+            <TextField
+              label="Meta description"
+              fullWidth
+              size="small"
+              multiline
+              minRows={2}
+              value={form.metaDescription}
+              onChange={(e) => set("metaDescription", e.target.value)}
+              placeholder="Defaults to the short description. ~155 characters recommended."
+            />
+            <TextField
+              label="Meta keywords (comma separated)"
+              fullWidth
+              size="small"
+              value={form.metaKeywords}
+              onChange={(e) => set("metaKeywords", e.target.value)}
+              placeholder="custom magnets, photo gifts, fridge magnets"
+            />
+            <TextField
+              label="Author"
+              fullWidth
+              size="small"
+              value={form.author}
+              onChange={(e) => set("author", e.target.value)}
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={form.published}
+                  onChange={(e) => set("published", e.target.checked)}
+                />
+              }
+              label="Published (visible on the website)"
+            />
+          </Stack>
+        </CardContent>
+      </Card>
+
+      <Stack direction="row" spacing={1.5} sx={{ mt: 2 }}>
+        <Button
+          variant="contained"
+          onClick={save}
+          disabled={saving}
+          startIcon={saving ? <CircularProgress size={16} color="inherit" /> : null}
+        >
+          {saving ? "Saving…" : "Save post"}
+        </Button>
+        <Button
+          variant="outlined"
+          color="inherit"
+          onClick={() => navigate("/blogs")}
+          sx={{ borderColor: "divider", color: "text.secondary" }}
+        >
           Cancel
-        </button>
-      </div>
-    </div>
+        </Button>
+      </Stack>
+    </Box>
   );
 }

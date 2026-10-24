@@ -1,7 +1,65 @@
 import { useEffect, useState } from "react";
+import {
+  Box,
+  Card,
+  CardContent,
+  Typography,
+  Grid,
+  Alert,
+  Skeleton,
+  Avatar,
+} from "@mui/material";
+import PeopleOutlinedIcon from "@mui/icons-material/PeopleOutlined";
+import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
+import PaidOutlinedIcon from "@mui/icons-material/PaidOutlined";
+import CardGiftcardOutlinedIcon from "@mui/icons-material/CardGiftcardOutlined";
 import { api } from "../api.js";
+import { PageHeader, RS } from "../components/ui.jsx";
 
-const RS = "\u20B9";
+function StatCard({ label, value, icon, color }) {
+  return (
+    <Card sx={{ height: "100%" }}>
+      <CardContent sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+        <Avatar
+          variant="rounded"
+          sx={{ bgcolor: `${color}.light`, color: `${color}.dark`, width: 48, height: 48 }}
+        >
+          {icon}
+        </Avatar>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="body2" color="text.secondary" noWrap>
+            {label}
+          </Typography>
+          <Typography variant="h5" sx={{ fontWeight: 700 }}>
+            {value}
+          </Typography>
+        </Box>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CountCard({ label, value, highlight }) {
+  return (
+    <Card sx={{ height: "100%", ...(highlight ? { borderColor: "error.main" } : {}) }}>
+      <CardContent>
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ textTransform: "capitalize" }}
+        >
+          {label}
+        </Typography>
+        <Typography
+          variant="h5"
+          sx={{ fontWeight: 700, mt: 0.5, color: highlight ? "error.main" : "text.primary" }}
+        >
+          {value}
+        </Typography>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function Dashboard() {
   const [stats, setStats] = useState(null);
@@ -13,56 +71,79 @@ export default function Dashboard() {
       .catch((e) => setError(e.message));
   }, []);
 
-  if (error) return <div className="error">{error}</div>;
-  if (!stats) return <p className="page-sub">Loading...</p>;
-
-  const cards = [
-    { label: "Total users", value: stats.users },
-    { label: "Total orders", value: stats.orders },
-    { label: "Revenue (excl. cancelled)", value: `${RS}${stats.revenue}` },
-    { label: "Referral payouts", value: `${RS}${stats.referralPayouts}` },
-  ];
+  if (error) return <Alert severity="error">{error}</Alert>;
 
   const statuses = ["pending", "processing", "shipped", "delivered", "cancelled"];
   const paymentStatuses = ["unpaid", "paid", "failed", "refunded"];
 
+  const cards = stats
+    ? [
+        { label: "Total users", value: stats.users, icon: <PeopleOutlinedIcon />, color: "info" },
+        { label: "Total orders", value: stats.orders, icon: <Inventory2OutlinedIcon />, color: "secondary" },
+        { label: "Revenue", value: `${RS}${stats.revenue}`, icon: <PaidOutlinedIcon />, color: "success" },
+        { label: "Referral payouts", value: `${RS}${stats.referralPayouts}`, icon: <CardGiftcardOutlinedIcon />, color: "warning" },
+      ]
+    : [];
+
   return (
-    <div>
-      <h1 className="page-title">Dashboard</h1>
-      <p className="page-sub">Overview of your store performance.</p>
+    <Box>
+      <PageHeader title="Dashboard" subtitle="Overview of your store performance." />
 
-      <div className="grid cols-4">
-        {cards.map((c) => (
-          <div className="card" key={c.label}>
-            <div className="stat-label">{c.label}</div>
-            <div className="stat-value">{c.value}</div>
-          </div>
-        ))}
-      </div>
+      <Grid container spacing={2}>
+        {stats
+          ? cards.map((c) => (
+              <Grid item xs={12} sm={6} md={3} key={c.label}>
+                <StatCard {...c} />
+              </Grid>
+            ))
+          : Array.from({ length: 4 }).map((_, i) => (
+              <Grid item xs={12} sm={6} md={3} key={i}>
+                <Card>
+                  <CardContent sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+                    <Skeleton variant="rounded" width={48} height={48} />
+                    <Box sx={{ flexGrow: 1 }}>
+                      <Skeleton width="60%" />
+                      <Skeleton width="40%" height={32} />
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+      </Grid>
 
-      <h2 style={{ marginTop: 28, fontSize: 18 }}>Orders by status</h2>
-      <div className="grid cols-4" style={{ marginTop: 12 }}>
+      <Typography variant="h6" sx={{ mt: 4, mb: 1.5 }}>
+        Orders by status
+      </Typography>
+      <Grid container spacing={2}>
         {statuses.map((s) => (
-          <div className="card" key={s}>
-            <div className="stat-label" style={{ textTransform: "capitalize" }}>{s}</div>
-            <div className="stat-value" style={{ fontSize: 24 }}>
-              {stats.statusCounts?.[s] ?? 0}
-            </div>
-          </div>
+          <Grid item xs={6} sm={4} md={2.4} key={s}>
+            {stats ? (
+              <CountCard label={s} value={stats.statusCounts?.[s] ?? 0} />
+            ) : (
+              <Skeleton variant="rounded" height={90} />
+            )}
+          </Grid>
         ))}
-      </div>
+      </Grid>
 
-      <h2 style={{ marginTop: 28, fontSize: 18 }}>Payment status</h2>
-      <div className="grid cols-4" style={{ marginTop: 12 }}>
+      <Typography variant="h6" sx={{ mt: 4, mb: 1.5 }}>
+        Payment status
+      </Typography>
+      <Grid container spacing={2}>
         {paymentStatuses.map((p) => (
-          <div className="card" key={p} style={p === "failed" ? { borderLeft: "3px solid #f97316" } : {}}>
-            <div className="stat-label" style={{ textTransform: "capitalize" }}>{p}</div>
-            <div className="stat-value" style={{ fontSize: 24, color: p === "failed" ? "#c2410c" : undefined }}>
-              {stats.paymentStatusCounts?.[p] ?? 0}
-            </div>
-          </div>
+          <Grid item xs={6} sm={3} key={p}>
+            {stats ? (
+              <CountCard
+                label={p}
+                value={stats.paymentStatusCounts?.[p] ?? 0}
+                highlight={p === "failed"}
+              />
+            ) : (
+              <Skeleton variant="rounded" height={90} />
+            )}
+          </Grid>
         ))}
-      </div>
-    </div>
+      </Grid>
+    </Box>
   );
 }

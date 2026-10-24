@@ -1,14 +1,35 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { Link as RouterLink } from "react-router-dom";
+import {
+  Box,
+  Card,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TablePagination,
+  TextField,
+  MenuItem,
+  Button,
+  Avatar,
+  Typography,
+  Select,
+  Alert,
+  Stack,
+  IconButton,
+  Tooltip,
+  CircularProgress,
+} from "@mui/material";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import { api } from "../api.js";
+import { PageHeader, StatusChip, PaymentChip, TableSkeleton, RS } from "../components/ui.jsx";
 
-const RS = "\u20B9";
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
 const STATUSES = ["pending", "processing", "shipped", "delivered", "cancelled"];
 const PAYMENTS = ["unpaid", "paid", "failed", "refunded"];
-
-// Uploaded images are proxied by the main site (/api/images/...). Show them via
-// the site origin if configured, otherwise skip the thumbnail.
 const SITE_URL = import.meta.env.VITE_SITE_URL || "";
 
 function imageSrc(url) {
@@ -22,40 +43,36 @@ function copyText(text) {
   navigator.clipboard?.writeText(text).catch(() => {});
 }
 
-const copyBtnStyle = {
-  border: "1px solid var(--line)",
-  background: "#fff",
-  borderRadius: 6,
-  padding: "0 6px",
-  fontSize: 10,
-  cursor: "pointer",
-  color: "var(--muted)",
-};
-
 export default function Orders() {
   const [orders, setOrders] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(0); // zero-based for MUI
+  const [rowsPerPage, setRowsPerPage] = useState(20);
   const [filter, setFilter] = useState("");
   const [paymentFilter, setPaymentFilter] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
 
-  function load() {
+  const load = useCallback(() => {
     setLoading(true);
     const params = new URLSearchParams();
+    params.set("page", String(page + 1));
+    params.set("limit", String(rowsPerPage));
     if (filter) params.set("status", filter);
     if (paymentFilter) params.set("paymentStatus", paymentFilter);
-    const qs = params.toString();
-    api(`/api/orders${qs ? `?${qs}` : ""}`)
-      .then((d) => setOrders(d.orders))
+    api(`/api/orders?${params.toString()}`)
+      .then((d) => {
+        setOrders(d.orders);
+        setTotal(d.total ?? d.orders.length);
+      })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }
+  }, [page, rowsPerPage, filter, paymentFilter]);
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter, paymentFilter]);
+  }, [load]);
 
   async function updateStatus(id, status) {
     setBusyId(id);
@@ -64,9 +81,7 @@ export default function Orders() {
         method: "PATCH",
         body: JSON.stringify({ status }),
       });
-      setOrders((prev) =>
-        prev.map((o) => (o._id === id ? { ...o, status } : o))
-      );
+      setOrders((prev) => prev.map((o) => (o._id === id ? { ...o, status } : o)));
     } catch (e) {
       alert(e.message);
     } finally {
@@ -81,9 +96,7 @@ export default function Orders() {
         method: "PATCH",
         body: JSON.stringify({ paymentStatus }),
       });
-      setOrders((prev) =>
-        prev.map((o) => (o._id === id ? { ...o, paymentStatus } : o))
-      );
+      setOrders((prev) => prev.map((o) => (o._id === id ? { ...o, paymentStatus } : o)));
     } catch (e) {
       alert(e.message);
     } finally {
@@ -91,235 +104,268 @@ export default function Orders() {
     }
   }
 
+  function changeFilter(setter) {
+    return (e) => {
+      setter(e.target.value);
+      setPage(0); // reset to first page when filters change
+    };
+  }
+
   return (
-    <div>
-      <h1 className="page-title">Orders</h1>
-      <p className="page-sub">
-        Manage orders. Marking an order <b>delivered</b> credits the referrer&apos;s wallet.
-      </p>
+    <Box>
+      <PageHeader
+        title="Orders"
+        subtitle="Manage orders. Marking an order delivered credits the referrer's wallet."
+      />
 
-      <div style={{ marginBottom: 16, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        <label className="stat-label">Status:</label>
-        <select
-          className="input"
-          style={{ width: 160 }}
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        spacing={1.5}
+        sx={{ mb: 2, alignItems: { sm: "center" } }}
+      >
+        <TextField
+          select
+          size="small"
+          label="Status"
           value={filter}
-          onChange={(e) => setFilter(e.target.value)}
+          onChange={changeFilter(setFilter)}
+          sx={{ minWidth: 160 }}
         >
-          <option value="">All statuses</option>
+          <MenuItem value="">All statuses</MenuItem>
           {STATUSES.map((s) => (
-            <option key={s} value={s}>
+            <MenuItem key={s} value={s} sx={{ textTransform: "capitalize" }}>
               {s}
-            </option>
+            </MenuItem>
           ))}
-        </select>
-        <label className="stat-label">Payment:</label>
-        <select
-          className="input"
-          style={{ width: 160 }}
+        </TextField>
+        <TextField
+          select
+          size="small"
+          label="Payment"
           value={paymentFilter}
-          onChange={(e) => setPaymentFilter(e.target.value)}
+          onChange={changeFilter(setPaymentFilter)}
+          sx={{ minWidth: 160 }}
         >
-          <option value="">All payments</option>
+          <MenuItem value="">All payments</MenuItem>
           {PAYMENTS.map((p) => (
-            <option key={p} value={p}>
+            <MenuItem key={p} value={p} sx={{ textTransform: "capitalize" }}>
               {p}
-            </option>
+            </MenuItem>
           ))}
-        </select>
-        <button className="btn ghost" onClick={load}>
+        </TextField>
+        <Button
+          variant="outlined"
+          color="inherit"
+          startIcon={loading ? <CircularProgress size={16} /> : <RefreshIcon />}
+          onClick={load}
+          disabled={loading}
+          sx={{ borderColor: "divider", color: "text.secondary" }}
+        >
           Refresh
-        </button>
-      </div>
+        </Button>
+      </Stack>
 
-      {error && <div className="error">{error}</div>}
-      {loading ? (
-        <p className="page-sub">Loading...</p>
-      ) : (
-        <div className="card" style={{ padding: 0, overflow: "auto" }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Photos</th>
-                <th>Customer</th>
-                <th>Items</th>
-                <th>Total</th>
-                <th>Ship to</th>
-                <th>Payment</th>
-                <th>Status</th>
-                <th>Referral</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((o) => {
-                const thumb = imageSrc(o.images?.[0]);
-                return (
-                  <tr key={o._id}>
-                    <td>
-                      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                        {thumb ? (
-                          <img className="thumb" src={thumb} alt="" />
-                        ) : (
-                          <div className="thumb" style={{ display: "grid", placeItems: "center" }}>
-                            {o.images?.length || 0}
-                          </div>
-                        )}
-                        {o.images?.length > 1 && (
-                          <span className="stat-label">+{o.images.length - 1}</span>
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ fontWeight: 600 }}>{o.user?.name || "—"}</div>
-                      <div className="stat-label">{o.user?.email}</div>
-                      <div className="stat-label">{o.shippingAddress?.phone}</div>
-                    </td>
-                    <td>
-                      {o.unitLabel}
-                      <div className="stat-label">Qty {o.quantity}</div>
-                    </td>
-                    <td>
-                      <b>
-                        {RS}
-                        {o.total ?? o.amount}
-                      </b>
-                      <div className="stat-label">
-                        {RS}
-                        {o.subtotal ?? "—"} + {RS}
-                        {o.gst ?? 0} GST
-                      </div>
-                      {o.discount > 0 && (
-                        <div className="stat-label" style={{ color: "#15803d" }}>
-                          {o.couponCode ? `${o.couponCode}: ` : ""}−{RS}{o.discount}
-                        </div>
-                      )}
-                    </td>
-                    <td style={{ maxWidth: 180 }}>
-                      <div className="stat-label">
-                        {o.shippingAddress?.city}, {o.shippingAddress?.state} -{" "}
-                        {o.shippingAddress?.pincode}
-                      </div>
-                    </td>
-                    <td style={{ maxWidth: 220 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                        <span className={`badge ${o.paymentStatus || "unpaid"}`}>
-                          {o.paymentStatus || "unpaid"}
-                        </span>
-                      </div>
-                      <select
-                        className="status-select"
-                        value={o.paymentStatus || "unpaid"}
-                        disabled={busyId === o._id}
-                        onChange={(e) => updatePayment(o._id, e.target.value)}
-                      >
-                        {PAYMENTS.map((p) => (
-                          <option key={p} value={p}>
-                            {p}
-                          </option>
-                        ))}
-                      </select>
-
-                      {/* Successful payment: show Razorpay payment id + paid time */}
-                      {o.paymentStatus === "paid" && (
-                        <div className="stat-label" style={{ marginTop: 6, fontSize: 11, lineHeight: 1.5 }}>
-                          {o.razorpayPaymentId && (
-                            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                              <span style={{ color: "#15803d", fontWeight: 600 }}>
-                                {o.razorpayPaymentId}
-                              </span>
-                              <button
-                                type="button"
-                                title="Copy payment ID"
-                                onClick={() => copyText(o.razorpayPaymentId)}
-                                style={copyBtnStyle}
-                              >
-                                copy
-                              </button>
-                            </div>
-                          )}
-                          {o.razorpayOrderId && (
-                            <div style={{ color: "var(--muted)" }}>ord: {o.razorpayOrderId}</div>
-                          )}
-                          {o.paidAt && <div>{new Date(o.paidAt).toLocaleString()}</div>}
-                        </div>
-                      )}
-
-                      {/* Failed payment: show reason + failed time + rzp ids if any */}
-                      {o.paymentStatus === "failed" && (
-                        <div className="stat-label" style={{ color: "#c2410c", marginTop: 6, fontSize: 11, lineHeight: 1.5 }}>
-                          {o.paymentFailureReason && (
-                            <div title={o.paymentFailureReason}>
-                              {o.paymentFailureReason.length > 40
-                                ? o.paymentFailureReason.slice(0, 40) + "…"
-                                : o.paymentFailureReason}
-                            </div>
-                          )}
-                          {o.razorpayPaymentId && (
-                            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                              <span>{o.razorpayPaymentId}</span>
-                              <button
-                                type="button"
-                                title="Copy payment ID"
-                                onClick={() => copyText(o.razorpayPaymentId)}
-                                style={copyBtnStyle}
-                              >
-                                copy
-                              </button>
-                            </div>
-                          )}
-                          {o.paymentFailedAt && (
-                            <div>{new Date(o.paymentFailedAt).toLocaleString()}</div>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                    <td>
-                      <select
-                        className="status-select"
-                        value={o.status || "pending"}
-                        disabled={busyId === o._id}
-                        onChange={(e) => updateStatus(o._id, e.target.value)}
-                      >
-                        {STATUSES.map((s) => (
-                          <option key={s} value={s}>
-                            {s}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td>
-                      {o.referrer ? (
-                        <div>
-                          <div className="stat-label">{o.referrer?.name}</div>
-                          <span className={`badge ${o.referralCredited ? "delivered" : "pending"}`}>
-                            {o.referralCredited ? "credited" : "pending"} {RS}
-                            {o.referralReward}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="stat-label">—</span>
-                      )}
-                    </td>
-                    <td>
-                      <Link className="btn ghost" to={`/orders/${o._id}`} style={{ padding: "6px 12px", fontSize: 13 }}>
-                        View
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-              {orders.length === 0 && (
-                <tr>
-                  <td colSpan={9} style={{ textAlign: "center", color: "var(--muted)" }}>
-                    No orders found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
       )}
-    </div>
+
+      <Card>
+        <TableContainer sx={{ maxWidth: "100%" }}>
+          <Table sx={{ minWidth: 980 }} size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Photos</TableCell>
+                <TableCell>Customer</TableCell>
+                <TableCell>Items</TableCell>
+                <TableCell>Total</TableCell>
+                <TableCell>Ship to</TableCell>
+                <TableCell>Payment</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Referral</TableCell>
+                <TableCell align="right" />
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {loading ? (
+                <TableSkeleton rows={rowsPerPage > 10 ? 8 : rowsPerPage} cols={9} />
+              ) : orders.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} align="center" sx={{ py: 6, color: "text.secondary" }}>
+                    No orders found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                orders.map((o) => {
+                  const thumb = imageSrc(o.images?.[0]);
+                  return (
+                    <TableRow key={o._id} hover>
+                      <TableCell>
+                        <Stack direction="row" spacing={0.5} alignItems="center">
+                          <Avatar
+                            variant="rounded"
+                            src={thumb || undefined}
+                            sx={{ width: 40, height: 40, fontSize: 13, bgcolor: "action.hover", color: "text.secondary" }}
+                          >
+                            {o.images?.length || 0}
+                          </Avatar>
+                          {o.images?.length > 1 && (
+                            <Typography variant="caption" color="text.secondary">
+                              +{o.images.length - 1}
+                            </Typography>
+                          )}
+                        </Stack>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {o.user?.name || "—"}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          {o.user?.email}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {o.shippingAddress?.phone}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">{o.unitLabel}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Qty {o.quantity}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                          {RS}
+                          {o.total ?? o.amount}
+                        </Typography>
+                        {o.discount > 0 && (
+                          <Typography variant="caption" sx={{ color: "success.main" }}>
+                            {o.couponCode ? `${o.couponCode}: ` : ""}−{RS}
+                            {o.discount}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell sx={{ maxWidth: 160 }}>
+                        <Typography variant="caption" color="text.secondary">
+                          {o.shippingAddress?.city}, {o.shippingAddress?.state} -{" "}
+                          {o.shippingAddress?.pincode}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ maxWidth: 220 }}>
+                        <Box sx={{ mb: 0.5 }}>
+                          <PaymentChip status={o.paymentStatus} />
+                        </Box>
+                        <Select
+                          size="small"
+                          value={o.paymentStatus || "unpaid"}
+                          disabled={busyId === o._id}
+                          onChange={(e) => updatePayment(o._id, e.target.value)}
+                          sx={{ fontSize: 12, height: 30, textTransform: "capitalize" }}
+                        >
+                          {PAYMENTS.map((p) => (
+                            <MenuItem key={p} value={p} sx={{ textTransform: "capitalize" }}>
+                              {p}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                        {o.paymentStatus === "paid" && o.razorpayPaymentId && (
+                          <Box sx={{ mt: 0.75, display: "flex", alignItems: "center", gap: 0.5 }}>
+                            <Typography variant="caption" sx={{ color: "success.main", fontWeight: 600 }}>
+                              {o.razorpayPaymentId}
+                            </Typography>
+                            <Tooltip title="Copy payment ID">
+                              <IconButton size="small" onClick={() => copyText(o.razorpayPaymentId)}>
+                                <ContentCopyIcon sx={{ fontSize: 13 }} />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
+                        )}
+                        {o.paymentStatus === "failed" && (
+                          <Box sx={{ mt: 0.75 }}>
+                            {o.paymentFailureReason && (
+                              <Typography variant="caption" sx={{ color: "warning.dark", display: "block" }}>
+                                {o.paymentFailureReason.length > 40
+                                  ? o.paymentFailureReason.slice(0, 40) + "…"
+                                  : o.paymentFailureReason}
+                              </Typography>
+                            )}
+                            {o.razorpayPaymentId && (
+                              <Typography variant="caption" color="text.secondary">
+                                {o.razorpayPaymentId}
+                              </Typography>
+                            )}
+                          </Box>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ mb: 0.5 }}>
+                          <StatusChip status={o.status} />
+                        </Box>
+                        <Select
+                          size="small"
+                          value={o.status || "pending"}
+                          disabled={busyId === o._id}
+                          onChange={(e) => updateStatus(o._id, e.target.value)}
+                          sx={{ fontSize: 12, height: 30, textTransform: "capitalize" }}
+                        >
+                          {STATUSES.map((s) => (
+                            <MenuItem key={s} value={s} sx={{ textTransform: "capitalize" }}>
+                              {s}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        {o.referrer ? (
+                          <Box>
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              {o.referrer?.name}
+                            </Typography>
+                            <StatusChip status={o.referralCredited ? "delivered" : "pending"} />
+                            <Typography variant="caption" sx={{ ml: 0.5 }}>
+                              {RS}
+                              {o.referralReward}
+                            </Typography>
+                          </Box>
+                        ) : (
+                          <Typography variant="caption" color="text.secondary">
+                            —
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell align="right">
+                        <Tooltip title="View order">
+                          <IconButton
+                            component={RouterLink}
+                            to={`/orders/${o._id}`}
+                            size="small"
+                            color="secondary"
+                          >
+                            <VisibilityOutlinedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        <TablePagination
+          component="div"
+          count={total}
+          page={page}
+          onPageChange={(_e, p) => setPage(p)}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={(e) => {
+            setRowsPerPage(parseInt(e.target.value, 10));
+            setPage(0);
+          }}
+          rowsPerPageOptions={[10, 20, 50, 100]}
+        />
+      </Card>
+    </Box>
   );
 }

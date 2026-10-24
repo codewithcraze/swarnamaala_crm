@@ -1,7 +1,18 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  Box,
+  Card,
+  CardContent,
+  TextField,
+  Button,
+  Typography,
+  Alert,
+  Stack,
+  CircularProgress,
+} from "@mui/material";
 import { api, setToken } from "../api.js";
-import Logo from "../components/Logo.jsx";
+import { LogoMark } from "../components/Logo.jsx";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -29,36 +40,71 @@ export default function Login() {
   }
 
   return (
-    <div className="login-wrap">
-      <div className="card login-card">
-        <div style={{ marginBottom: 12 }}>
-          <Logo />
-        </div>
-        <h1 style={{ fontSize: 20, margin: "0 0 4px" }}>CRM Admin</h1>
-        <p className="page-sub">Sign in to manage users, orders and referrals.</p>
-        <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
-          <input
-            className="input"
-            type="email"
-            placeholder="Admin email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <input
-            className="input"
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          {error && <div className="error">{error}</div>}
-          <button className="btn" disabled={loading}>
-            {loading ? "Signing in..." : "Sign in"}
-          </button>
-        </form>
-      </div>
-    </div>
+    <Box
+      sx={{
+        minHeight: "100vh",
+        display: "grid",
+        placeItems: "center",
+        p: 2,
+        bgcolor: "background.default",
+      }}
+    >
+      <Card sx={{ width: "100%", maxWidth: 420 }}>
+        <CardContent sx={{ p: { xs: 3, sm: 4 } }}>
+          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 3 }}>
+            <LogoMark size={40} />
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.1 }}>
+                swarnamaala
+                <Box component="span" sx={{ color: "secondary.main" }}>
+                  .in
+                </Box>
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Admin CRM
+              </Typography>
+            </Box>
+          </Stack>
+
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Sign in to manage users, orders and referrals.
+          </Typography>
+
+          <form onSubmit={handleSubmit}>
+            <Stack spacing={2}>
+              <TextField
+                label="Email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoFocus
+                fullWidth
+                size="small"
+              />
+              <TextField
+                label="Password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                fullWidth
+                size="small"
+              />
+              {error && <Alert severity="error">{error}</Alert>}
+              <Button
+                type="submit"
+                variant="contained"
+                size="large"
+                disabled={loading}
+                startIcon={loading ? <CircularProgress size={18} color="inherit" /> : null}
+              >
+                {loading ? "Signing in…" : "Sign in"}
+              </Button>
+            </Stack>
+          </form>
+        </CardContent>
+      </Card>
+    </Box>
   );
 }

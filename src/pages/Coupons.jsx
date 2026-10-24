@@ -1,7 +1,31 @@
 import { useEffect, useState } from "react";
+import {
+  Box,
+  Card,
+  CardContent,
+  Typography,
+  Grid,
+  TextField,
+  MenuItem,
+  Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TablePagination,
+  Chip,
+  Alert,
+  Stack,
+  IconButton,
+  Tooltip,
+  CircularProgress,
+} from "@mui/material";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import { api } from "../api.js";
-
-const RS = "\u20B9";
+import { PageHeader, TableSkeleton, RS } from "../components/ui.jsx";
 
 const EMPTY_FORM = {
   code: "",
@@ -21,6 +45,8 @@ export default function Coupons() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState(null);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   function load() {
     setLoading(true);
@@ -105,186 +131,248 @@ export default function Coupons() {
     return c.expiresAt && new Date(c.expiresAt).getTime() < Date.now();
   }
 
+  const paged = coupons.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+
   return (
-    <div>
-      <h1 className="page-title">Coupons</h1>
-      <p className="page-sub">Generate discount codes customers can apply at checkout.</p>
+    <Box>
+      <PageHeader
+        title="Coupons"
+        subtitle="Generate discount codes customers can apply at checkout."
+      />
 
       {/* Generate form */}
-      <div className="card" style={{ marginBottom: 24 }}>
-        <h2 style={{ fontSize: 16, margin: "0 0 14px" }}>Generate a coupon</h2>
-        <form onSubmit={generate}>
-          <div className="grid cols-4" style={{ gap: 14 }}>
-            <div>
-              <label className="field-label">Type</label>
-              <select className="input" value={form.type} onChange={(e) => set("type", e.target.value)}>
-                <option value="percent">Percentage (%)</option>
-                <option value="flat">Flat amount ({RS})</option>
-              </select>
-            </div>
-            <div>
-              <label className="field-label">
-                {form.type === "percent" ? "Percent off (1–100)" : `Amount off (${RS})`}
-              </label>
-              <input
-                className="input"
-                type="number"
-                min="1"
-                value={form.value}
-                onChange={(e) => set("value", e.target.value)}
-                placeholder={form.type === "percent" ? "10" : "50"}
-                required
-              />
-            </div>
-            {form.type === "percent" && (
-              <div>
-                <label className="field-label">Max discount ({RS}, optional)</label>
-                <input
-                  className="input"
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            Generate a coupon
+          </Typography>
+          <form onSubmit={generate}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  select
+                  fullWidth
+                  size="small"
+                  label="Type"
+                  value={form.type}
+                  onChange={(e) => set("type", e.target.value)}
+                >
+                  <MenuItem value="percent">Percentage (%)</MenuItem>
+                  <MenuItem value="flat">Flat amount ({RS})</MenuItem>
+                </TextField>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  fullWidth
+                  size="small"
                   type="number"
-                  min="0"
-                  value={form.maxDiscount}
-                  onChange={(e) => set("maxDiscount", e.target.value)}
-                  placeholder="No cap"
+                  label={form.type === "percent" ? "Percent off (1–100)" : `Amount off (${RS})`}
+                  value={form.value}
+                  onChange={(e) => set("value", e.target.value)}
+                  placeholder={form.type === "percent" ? "10" : "50"}
+                  required
+                  inputProps={{ min: 1 }}
                 />
-              </div>
-            )}
-            <div>
-              <label className="field-label">Min order ({RS}, optional)</label>
-              <input
-                className="input"
-                type="number"
-                min="0"
-                value={form.minOrderValue}
-                onChange={(e) => set("minOrderValue", e.target.value)}
-                placeholder="0"
-              />
-            </div>
-            <div>
-              <label className="field-label">Usage limit (optional)</label>
-              <input
-                className="input"
-                type="number"
-                min="0"
-                value={form.usageLimit}
-                onChange={(e) => set("usageLimit", e.target.value)}
-                placeholder="Unlimited"
-              />
-            </div>
-            <div>
-              <label className="field-label">Expires on (optional)</label>
-              <input
-                className="input"
-                type="date"
-                value={form.expiresAt}
-                onChange={(e) => set("expiresAt", e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="field-label">Code (optional)</label>
-              <input
-                className="input"
-                value={form.code}
-                onChange={(e) => set("code", e.target.value.toUpperCase())}
-                placeholder="Auto-generate"
-                style={{ textTransform: "uppercase" }}
-              />
-            </div>
-          </div>
-          {formError && <div className="error" style={{ marginTop: 12 }}>{formError}</div>}
-          <button className="btn" style={{ marginTop: 16 }} disabled={saving}>
-            {saving ? "Generating…" : "Generate coupon"}
-          </button>
-        </form>
-      </div>
-
-      {error && <div className="error">{error}</div>}
-      {loading ? (
-        <p className="page-sub">Loading...</p>
-      ) : (
-        <div className="card" style={{ padding: 0, overflow: "auto" }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Code</th>
-                <th>Discount</th>
-                <th>Rules</th>
-                <th>Usage</th>
-                <th>Expires</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {coupons.map((c) => {
-                const expired = isExpired(c);
-                return (
-                  <tr key={c._id}>
-                    <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <b style={{ letterSpacing: 0.5 }}>{c.code}</b>
-                        <button className="btn ghost" style={{ padding: "2px 8px", fontSize: 11 }}
-                          onClick={() => copyCode(c.code)}>copy</button>
-                      </div>
-                    </td>
-                    <td>{discountLabel(c)}</td>
-                    <td>
-                      <div className="stat-label">
-                        {c.type === "percent" && c.maxDiscount > 0 && <div>Max {RS}{c.maxDiscount}</div>}
-                        {c.minOrderValue > 0 && <div>Min order {RS}{c.minOrderValue}</div>}
-                        {(!c.maxDiscount && !c.minOrderValue) && "—"}
-                      </div>
-                    </td>
-                    <td>
-                      {c.usedCount || 0}
-                      {c.usageLimit > 0 ? ` / ${c.usageLimit}` : " / ∞"}
-                    </td>
-                    <td className="stat-label">
-                      {c.expiresAt ? new Date(c.expiresAt).toLocaleDateString() : "Never"}
-                    </td>
-                    <td>
-                      {expired ? (
-                        <span className="badge cancelled">expired</span>
-                      ) : c.active ? (
-                        <span className="badge delivered">active</span>
-                      ) : (
-                        <span className="badge pending">inactive</span>
-                      )}
-                    </td>
-                    <td>
-                      <div style={{ display: "flex", gap: 6 }}>
-                        <button
-                          className="btn ghost"
-                          style={{ padding: "6px 10px", fontSize: 12 }}
-                          disabled={busyId === c._id || expired}
-                          onClick={() => toggleActive(c)}
-                        >
-                          {c.active ? "Disable" : "Enable"}
-                        </button>
-                        <button
-                          className="btn ghost"
-                          style={{ padding: "6px 10px", fontSize: 12, color: "#b91c1c" }}
-                          disabled={busyId === c._id}
-                          onClick={() => remove(c)}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-              {coupons.length === 0 && (
-                <tr>
-                  <td colSpan={7} style={{ textAlign: "center", color: "var(--muted)" }}>
-                    No coupons yet. Generate one above.
-                  </td>
-                </tr>
+              </Grid>
+              {form.type === "percent" && (
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    type="number"
+                    label={`Max discount (${RS})`}
+                    value={form.maxDiscount}
+                    onChange={(e) => set("maxDiscount", e.target.value)}
+                    placeholder="No cap"
+                    inputProps={{ min: 0 }}
+                  />
+                </Grid>
               )}
-            </tbody>
-          </table>
-        </div>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="number"
+                  label={`Min order (${RS})`}
+                  value={form.minOrderValue}
+                  onChange={(e) => set("minOrderValue", e.target.value)}
+                  placeholder="0"
+                  inputProps={{ min: 0 }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="number"
+                  label="Usage limit"
+                  value={form.usageLimit}
+                  onChange={(e) => set("usageLimit", e.target.value)}
+                  placeholder="Unlimited"
+                  inputProps={{ min: 0 }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="date"
+                  label="Expires on"
+                  value={form.expiresAt}
+                  onChange={(e) => set("expiresAt", e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Code (optional)"
+                  value={form.code}
+                  onChange={(e) => set("code", e.target.value.toUpperCase())}
+                  placeholder="Auto-generate"
+                  inputProps={{ style: { textTransform: "uppercase" } }}
+                />
+              </Grid>
+            </Grid>
+            {formError && (
+              <Alert severity="error" sx={{ mt: 2 }}>
+                {formError}
+              </Alert>
+            )}
+            <Button
+              type="submit"
+              variant="contained"
+              sx={{ mt: 2 }}
+              disabled={saving}
+              startIcon={saving ? <CircularProgress size={16} color="inherit" /> : null}
+            >
+              {saving ? "Generating…" : "Generate coupon"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
       )}
-    </div>
+
+      <Card>
+        <TableContainer>
+          <Table sx={{ minWidth: 820 }} size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Code</TableCell>
+                <TableCell>Discount</TableCell>
+                <TableCell>Rules</TableCell>
+                <TableCell>Usage</TableCell>
+                <TableCell>Expires</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell align="right">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {loading ? (
+                <TableSkeleton rows={5} cols={7} />
+              ) : coupons.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} align="center" sx={{ py: 5, color: "text.secondary" }}>
+                    No coupons yet. Generate one above.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                paged.map((c) => {
+                  const expired = isExpired(c);
+                  return (
+                    <TableRow key={c._id} hover>
+                      <TableCell>
+                        <Stack direction="row" spacing={0.5} alignItems="center">
+                          <Typography sx={{ fontWeight: 700, fontFamily: "monospace", letterSpacing: 0.5 }}>
+                            {c.code}
+                          </Typography>
+                          <Tooltip title="Copy code">
+                            <IconButton size="small" onClick={() => copyCode(c.code)}>
+                              <ContentCopyIcon sx={{ fontSize: 14 }} />
+                            </IconButton>
+                          </Tooltip>
+                        </Stack>
+                      </TableCell>
+                      <TableCell>{discountLabel(c)}</TableCell>
+                      <TableCell>
+                        <Typography variant="caption" color="text.secondary" component="div">
+                          {c.type === "percent" && c.maxDiscount > 0 && <div>Max {RS}{c.maxDiscount}</div>}
+                          {c.minOrderValue > 0 && <div>Min order {RS}{c.minOrderValue}</div>}
+                          {!c.maxDiscount && !c.minOrderValue && "—"}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        {c.usedCount || 0}
+                        {c.usageLimit > 0 ? ` / ${c.usageLimit}` : " / ∞"}
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="caption" color="text.secondary">
+                          {c.expiresAt ? new Date(c.expiresAt).toLocaleDateString() : "Never"}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        {expired ? (
+                          <Chip size="small" color="error" variant="outlined" label="expired" />
+                        ) : c.active ? (
+                          <Chip size="small" color="success" label="active" />
+                        ) : (
+                          <Chip size="small" color="warning" variant="outlined" label="inactive" />
+                        )}
+                      </TableCell>
+                      <TableCell align="right">
+                        <Stack direction="row" spacing={1} justifyContent="flex-end">
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="inherit"
+                            disabled={busyId === c._id || expired}
+                            onClick={() => toggleActive(c)}
+                            sx={{ borderColor: "divider", color: "text.secondary" }}
+                          >
+                            {c.active ? "Disable" : "Enable"}
+                          </Button>
+                          <Tooltip title="Delete coupon">
+                            <span>
+                              <IconButton
+                                size="small"
+                                color="error"
+                                disabled={busyId === c._id}
+                                onClick={() => remove(c)}
+                              >
+                                <DeleteOutlineIcon fontSize="small" />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        {!loading && coupons.length > 0 && (
+          <TablePagination
+            component="div"
+            count={coupons.length}
+            page={page}
+            onPageChange={(_e, p) => setPage(p)}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={(e) => {
+              setRowsPerPage(parseInt(e.target.value, 10));
+              setPage(0);
+            }}
+            rowsPerPageOptions={[10, 25, 50]}
+          />
+        )}
+      </Card>
+    </Box>
   );
 }
