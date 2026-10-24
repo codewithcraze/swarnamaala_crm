@@ -28,7 +28,15 @@ import DownloadOutlinedIcon from "@mui/icons-material/DownloadOutlined";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import { api, downloadBlob } from "../api.js";
-import { PageHeader, StatusChip, PaymentChip, RS } from "../components/ui.jsx";
+import {
+  PageHeader,
+  StatusChip,
+  PaymentChip,
+  RS,
+  SourceChip,
+  sourceLabel,
+  isMarketplaceOrder,
+} from "../components/ui.jsx";
 
 const STATUSES = ["pending", "processing", "shipped", "delivered", "cancelled"];
 const PAYMENTS = ["unpaid", "paid", "failed", "refunded"];
@@ -190,7 +198,8 @@ export default function OrderDetail() {
         title={`Order #${String(order._id).slice(-8)}`}
         subtitle={`Placed ${fmt(order.createdAt)}`}
         action={
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+            <SourceChip source={order.source} />
             <PaymentChip status={order.paymentStatus} />
             <StatusChip status={order.status} />
             <Button
@@ -221,6 +230,25 @@ export default function OrderDetail() {
               </CardContent>
             </Card>
 
+            {isMarketplaceOrder(order) && (
+              <Card sx={{ borderColor: "secondary.main" }}>
+                <CardContent>
+                  <SectionTitle>Marketplace order</SectionTitle>
+                  <Typography sx={{ mt: 0.5, fontWeight: 600 }}>{sourceLabel(order.source)}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Platform order ID:{" "}
+                    <Box component="b" sx={{ color: "text.primary", fontFamily: "monospace" }}>
+                      {order.externalOrderId || "—"}
+                    </Box>
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                    Paid and shipped through {sourceLabel(order.source)}. Photos sent via the public upload link.
+                  </Typography>
+                </CardContent>
+              </Card>
+            )}
+
+            {order.shippingAddress?.line1 && (
             <Card>
               <CardContent>
                 <SectionTitle>Ship to</SectionTitle>
@@ -234,7 +262,9 @@ export default function OrderDetail() {
                 </Typography>
               </CardContent>
             </Card>
+            )}
 
+            {!isMarketplaceOrder(order) && (
             <Card>
               <CardContent>
                 <SectionTitle>Payment</SectionTitle>
@@ -282,6 +312,7 @@ export default function OrderDetail() {
                 )}
               </CardContent>
             </Card>
+            )}
           </Stack>
         </Grid>
 

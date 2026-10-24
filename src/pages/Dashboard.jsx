@@ -14,7 +14,8 @@ import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import PaidOutlinedIcon from "@mui/icons-material/PaidOutlined";
 import CardGiftcardOutlinedIcon from "@mui/icons-material/CardGiftcardOutlined";
 import { api } from "../api.js";
-import { PageHeader, RS } from "../components/ui.jsx";
+import { Link as RouterLink } from "react-router-dom";
+import { PageHeader, RS, SOURCES, sourceColor } from "../components/ui.jsx";
 
 function StatCard({ label, value, icon, color }) {
   return (
@@ -138,6 +139,34 @@ export default function Dashboard() {
                 value={stats.paymentStatusCounts?.[p] ?? 0}
                 highlight={p === "failed"}
               />
+            ) : (
+              <Skeleton variant="rounded" height={90} />
+            )}
+          </Grid>
+        ))}
+      </Grid>
+
+      <Typography variant="h6" sx={{ mt: 4, mb: 1.5 }}>
+        Orders by source
+      </Typography>
+      <Grid container spacing={2}>
+        {SOURCES.filter((s) => s.id === "website" || (stats?.sourceCounts?.[s.id] ?? 0) > 0).map((s) => (
+          <Grid item xs={6} sm={4} md={3} key={s.id}>
+            {stats ? (
+              <Card
+                component={RouterLink}
+                to={`/orders?source=${s.id}`}
+                sx={{ display: "block", height: "100%", textDecoration: "none", borderLeft: `4px solid ${sourceColor(s.id)}` }}
+              >
+                <CardContent>
+                  <Typography variant="body2" color="text.secondary">
+                    {s.id === "website" ? "Main site" : s.label}
+                  </Typography>
+                  <Typography variant="h5" sx={{ fontWeight: 700, mt: 0.5 }}>
+                    {stats.sourceCounts?.[s.id] ?? 0}
+                  </Typography>
+                </CardContent>
+              </Card>
             ) : (
               <Skeleton variant="rounded" height={90} />
             )}

@@ -34,7 +34,18 @@ import {
   DialogActions,
 } from "@mui/material";
 import { api } from "../api.js";
-import { PageHeader, StatusChip, PaymentChip, TableSkeleton, RS } from "../components/ui.jsx";
+import {
+  PageHeader,
+  StatusChip,
+  PaymentChip,
+  TableSkeleton,
+  RS,
+  SOURCES,
+  SourceChip,
+  sourceLabel,
+  sourceColor,
+  isMarketplaceOrder,
+} from "../components/ui.jsx";
 
 const STATUSES = ["pending", "processing", "shipped", "delivered", "cancelled"];
 const PAYMENTS = ["unpaid", "paid", "failed", "refunded"];
@@ -58,6 +69,12 @@ export default function Orders() {
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [filter, setFilter] = useState("");
   const [paymentFilter, setPaymentFilter] = useState("");
+  // Allow /orders?source=meesho (e.g. from the dashboard) to pre-filter.
+  const [sourceFilter, setSourceFilter] = useState(
+    () => new URLSearchParams(window.location.search).get("source") || ""
+  );
+  const [extSearch, setExtSearch] = useState("");
+  const [extDebounced, setExtDebounced] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
@@ -71,6 +88,8 @@ export default function Orders() {
     params.set("limit", String(rowsPerPage));
     if (filter) params.set("status", filter);
     if (paymentFilter) params.set("paymentStatus", paymentFilter);
+    if (sourceFilter) params.set("source", sourceFilter);
+    if (extDebounced) params.set("externalOrderId", extDebounced);
     api(`/api/orders?${params.toString()}`)
       .then((d) => {
         setOrders(d.orders);
@@ -78,7 +97,16 @@ export default function Orders() {
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [page, rowsPerPage, filter, paymentFilter]);
+  }, [page, rowsPerPage, filter, paymentFilter, sourceFilter, extDebounced]);
+
+  // Debounce the platform order-id search.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setExtDebounced(extSearch.trim());
+      setPage(0);
+    }, 350);
+    return () => clearTimeout(t);
+  }, [extSearch]);
 
   useEffect(() => {
     load();
@@ -178,6 +206,29 @@ export default function Orders() {
             </MenuItem>
           ))}
         </TextField>
+        <TextField
+          select
+          size="small"
+          label="Source"
+          value={sourceFilter}
+          onChange={changeFilter(setSourceFilter)}
+          sx={{ minWidth: 160 }}
+        >
+          <MenuItem value="">All sources</MenuItem>
+          <MenuItem value="marketplace">All marketplaces</MenuItem>
+          {SOURCES.map((s) => (
+            <MenuItem key={s.id} value={s.id}>
+              {s.label}
+            </MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          size="small"
+          label="Platform order ID"
+          value={extSearch}
+          onChange={(e) => setExtSearch(e.target.value)}
+          sx={{ minWidth: 180 }}
+        />
         <Button
           variant="outlined"
           color="inherit"
@@ -198,12 +249,13 @@ export default function Orders() {
 
       <Card>
         <TableContainer sx={{ maxWidth: "100%" }}>
-          <Table sx={{ minWidth: 980 }} size="small">
+          <Table sx={{ minWidth: 1080 }} size="small">
             <TableHead>
               <TableRow>
+                <TableCell>Source</TableCell>
                 <TableCell>Photos</TableCell>
                 <TableCell>Customer</TableCell>
-                <TableCell>Items</TableCell>
+                <TableCell>Qty</TableCell>
                 <TableCell>Total</TableCell>
                 <TableCell>Ship to</TableCell>
                 <TableCell>Payment</TableCell>
@@ -214,10 +266,10 @@ export default function Orders() {
             </TableHead>
             <TableBody>
               {loading ? (
-                <TableSkeleton rows={rowsPerPage > 10 ? 8 : rowsPerPage} cols={9} />
+                <TableSkeleton rows={rowsPerPage > 10 ? 8 : rowsPerPage} cols={10} />
               ) : orders.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ py: 6, color: "text.secondary" }}>
+                  <TableCell colSpan={10} align="center" sx={{ py: 6, color: "text.secondary" }}>
                     No orders found.
                   </TableCell>
                 </TableRow>
@@ -225,7 +277,25 @@ export default function Orders() {
                 orders.map((o) => {
                   const thumb = imageSrc(o.images?.[0]);
                   return (
-                    <TableRow key={o._id} hover>
+                    <TableRow
+                      key={o._id}
+                      hover
+                      // Coloured edge marks where the order came from.
+                      sx={{ "& > td:first-of-type": { boxShadow: `inset 4px 0 0 ${sourceColor(o.source)}` } }}
+                    >
+                      <TableCell>
+                        <SourceChip source={o.source} />
+                        {o.externalOrderId && (
+                          <Typography
+                            variant="caption"
+                            display="block"
+                            sx={{ mt: 0.5, fontFamily: "monospace", fontWeight: 600 }}
+                            title="Platform order ID"
+                          >
+                            {o.externalOrderId}
+                          </Typography>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <Stack direction="row" spacing={0.5} alignItems="center">
                           <Avatar
@@ -254,15 +324,16 @@ export default function Orders() {
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2">{o.unitLabel}</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {o.quantity}
+                        </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Qty {o.quantity}
+                          magnet{o.quantity === 1 ? "" : "s"}
                         </Typography>
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                          {RS}
-                          {o.total ?? o.amount}
+                          {isMarketplaceOrder(o) ? `Paid on ${sourceLabel(o.source)}` : `${RS}${o.total ?? o.amount}`}
                         </Typography>
                         {o.discount > 0 && (
                           <Typography variant="caption" sx={{ color: "success.main" }}>
@@ -273,8 +344,9 @@ export default function Orders() {
                       </TableCell>
                       <TableCell sx={{ maxWidth: 160 }}>
                         <Typography variant="caption" color="text.secondary">
-                          {o.shippingAddress?.city}, {o.shippingAddress?.state} -{" "}
-                          {o.shippingAddress?.pincode}
+                          {o.shippingAddress?.city
+                            ? `${o.shippingAddress.city}, ${o.shippingAddress.state} - ${o.shippingAddress.pincode}`
+                            : `Ships via ${sourceLabel(o.source)}`}
                         </Typography>
                       </TableCell>
                       <TableCell sx={{ maxWidth: 220 }}>
