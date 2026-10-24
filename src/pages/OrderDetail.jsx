@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, Link as RouterLink } from "react-router-dom";
+import { useParams, Link as RouterLink, useNavigate } from "react-router-dom";
 import {
   Box,
   Card,
@@ -17,10 +17,16 @@ import {
   ImageListItem,
   CircularProgress,
   Skeleton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import DownloadOutlinedIcon from "@mui/icons-material/DownloadOutlined";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutlined";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import { api, downloadBlob } from "../api.js";
 import { PageHeader, StatusChip, PaymentChip, RS } from "../components/ui.jsx";
 
@@ -48,6 +54,7 @@ function SectionTitle({ children }) {
 
 export default function OrderDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [order, setOrder] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -57,6 +64,8 @@ export default function OrderDetail() {
   const [noteSaving, setNoteSaving] = useState(false);
   const [noteSaved, setNoteSaved] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   function load() {
     setLoading(true);
@@ -122,6 +131,17 @@ export default function OrderDetail() {
     }
   }
 
+  async function deleteOrder() {
+    setDeleting(true);
+    try {
+      await api(`/api/orders/${id}`, { method: "DELETE" });
+      navigate("/orders", { replace: true });
+    } catch (e) {
+      alert(e.message);
+      setDeleting(false);
+    }
+  }
+
   async function downloadAll() {
     setDownloading(true);
     try {
@@ -170,9 +190,18 @@ export default function OrderDetail() {
         title={`Order #${String(order._id).slice(-8)}`}
         subtitle={`Placed ${fmt(order.createdAt)}`}
         action={
-          <Stack direction="row" spacing={1}>
+          <Stack direction="row" spacing={1} alignItems="center">
             <PaymentChip status={order.paymentStatus} />
             <StatusChip status={order.status} />
+            <Button
+              size="small"
+              color="error"
+              variant="outlined"
+              startIcon={<DeleteOutlineIcon />}
+              onClick={() => setConfirmOpen(true)}
+            >
+              Delete
+            </Button>
           </Stack>
         }
       />
@@ -419,6 +448,31 @@ export default function OrderDetail() {
           </Stack>
         </Grid>
       </Grid>
+
+      <Dialog open={confirmOpen} onClose={() => !deleting && setConfirmOpen(false)}>
+        <DialogTitle>Delete this order?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Order #{String(order._id).slice(-8)} will be permanently deleted, including its{" "}
+            {images.length} uploaded photo{images.length === 1 ? "" : "s"} from storage. This
+            cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button color="inherit" onClick={() => setConfirmOpen(false)} disabled={deleting}>
+            Cancel
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={deleteOrder}
+            disabled={deleting}
+            startIcon={deleting ? <CircularProgress size={16} color="inherit" /> : <DeleteOutlineIcon />}
+          >
+            {deleting ? "Deleting…" : "Delete"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

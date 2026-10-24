@@ -25,6 +25,14 @@ import {
 import RefreshIcon from "@mui/icons-material/Refresh";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+} from "@mui/material";
 import { api } from "../api.js";
 import { PageHeader, StatusChip, PaymentChip, TableSkeleton, RS } from "../components/ui.jsx";
 
@@ -53,6 +61,8 @@ export default function Orders() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null); // order pending deletion
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -101,6 +111,21 @@ export default function Orders() {
       alert(e.message);
     } finally {
       setBusyId(null);
+    }
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await api(`/api/orders/${deleteTarget._id}`, { method: "DELETE" });
+      setOrders((prev) => prev.filter((o) => o._id !== deleteTarget._id));
+      setTotal((t) => Math.max(0, t - 1));
+      setDeleteTarget(null);
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -335,16 +360,28 @@ export default function Orders() {
                         )}
                       </TableCell>
                       <TableCell align="right">
-                        <Tooltip title="View order">
-                          <IconButton
-                            component={RouterLink}
-                            to={`/orders/${o._id}`}
-                            size="small"
-                            color="secondary"
-                          >
-                            <VisibilityOutlinedIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
+                        <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                          <Tooltip title="View order">
+                            <IconButton
+                              component={RouterLink}
+                              to={`/orders/${o._id}`}
+                              size="small"
+                              color="secondary"
+                            >
+                              <VisibilityOutlinedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete order">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              disabled={busyId === o._id}
+                              onClick={() => setDeleteTarget(o)}
+                            >
+                              <DeleteOutlineIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Stack>
                       </TableCell>
                     </TableRow>
                   );
@@ -366,6 +403,32 @@ export default function Orders() {
           rowsPerPageOptions={[10, 20, 50, 100]}
         />
       </Card>
+
+      <Dialog open={Boolean(deleteTarget)} onClose={() => !deleting && setDeleteTarget(null)}>
+        <DialogTitle>Delete this order?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Order #{deleteTarget ? String(deleteTarget._id).slice(-8) : ""} for{" "}
+            <b>{deleteTarget?.user?.name || "this customer"}</b> will be permanently deleted,
+            including its {deleteTarget?.images?.length || 0} uploaded photo
+            {deleteTarget?.images?.length === 1 ? "" : "s"} from storage. This cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button color="inherit" onClick={() => setDeleteTarget(null)} disabled={deleting}>
+            Cancel
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={confirmDelete}
+            disabled={deleting}
+            startIcon={deleting ? <CircularProgress size={16} color="inherit" /> : <DeleteOutlineIcon />}
+          >
+            {deleting ? "Deleting…" : "Delete"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
