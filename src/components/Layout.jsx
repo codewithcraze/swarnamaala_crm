@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
+
 import {
   AppBar,
   Box,
@@ -25,7 +26,7 @@ import LocalOfferOutlinedIcon from "@mui/icons-material/LocalOfferOutlined";
 import ArticleOutlinedIcon from "@mui/icons-material/ArticleOutlined";
 import LogoutOutlinedIcon from "@mui/icons-material/LogoutOutlined";
 import { setToken } from "../api.js";
-import { LogoMark } from "./Logo.jsx";
+import Logo, { LogoMark } from "./Logo.jsx";
 
 const DRAWER_WIDTH = 248;
 
@@ -58,19 +59,8 @@ export default function Layout() {
 
   const drawerContent = (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <Toolbar sx={{ gap: 1.5, px: 2.5 }}>
-        <LogoMark size={30} />
-        <Box sx={{ lineHeight: 1 }}>
-          <Typography sx={{ fontWeight: 800, fontSize: 16, lineHeight: 1.1 }}>
-            swarnamaala
-            <Box component="span" sx={{ color: "secondary.main" }}>
-              .in
-            </Box>
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Admin CRM
-          </Typography>
-        </Box>
+      <Toolbar sx={{ gap: 1.5, px: 2.5, bgcolor: "black" }}>
+        <img src='/logo.png' width="100%" height="70px" />
       </Toolbar>
       <Divider />
       <List sx={{ px: 1.5, py: 1.5, flexGrow: 1 }}>
