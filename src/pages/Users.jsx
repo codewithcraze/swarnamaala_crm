@@ -19,7 +19,9 @@ import {
   Snackbar,
 } from "@mui/material";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
-import { DeleteUserDialog } from "../components/OrderDialogs.jsx";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import LockResetOutlinedIcon from "@mui/icons-material/LockResetOutlined";
+import { DeleteUserDialog, EditCustomerDialog, ResetPasswordDialog } from "../components/OrderDialogs.jsx";
 import SearchIcon from "@mui/icons-material/Search";
 import { api } from "../api.js";
 import { PageHeader, TableSkeleton, RS } from "../components/ui.jsx";
@@ -42,6 +44,8 @@ export default function Users() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [toDelete, setToDelete] = useState(null);
+  const [toEdit, setToEdit] = useState(null);
+  const [toReset, setToReset] = useState(null);
   const [toast, setToast] = useState("");
 
   // Debounce the search box so we don't hit the API on every keystroke.
@@ -154,15 +158,27 @@ export default function Users() {
                         {formatDate(u.createdAt)}
                       </Typography>
                     </TableCell>
-                    <TableCell align="right" sx={{ width: 56 }}>
+                    <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
+                      <Tooltip title="Edit user">
+                        <IconButton size="small" onClick={() => setToEdit(u)}>
+                          <EditOutlinedIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                       {u.role === "admin" ? (
-                        <Chip size="small" label="Admin" variant="outlined" />
+                        <Chip size="small" label="Admin" variant="outlined" sx={{ ml: 0.5 }} />
                       ) : (
-                        <Tooltip title="Delete user">
-                          <IconButton size="small" color="error" onClick={() => setToDelete(u)}>
-                            <DeleteOutlineIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
+                        <>
+                          <Tooltip title="Reset password & email it">
+                            <IconButton size="small" color="warning" onClick={() => setToReset(u)}>
+                              <LockResetOutlinedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete user">
+                            <IconButton size="small" color="error" onClick={() => setToDelete(u)}>
+                              <DeleteOutlineIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </>
                       )}
                     </TableCell>
                   </TableRow>
@@ -199,6 +215,25 @@ export default function Users() {
           // Step back a page if this was the last row on it.
           if (users.length === 1 && page > 0) setPage(page - 1);
           else load();
+        }}
+      />
+      <EditCustomerDialog
+        open={!!toEdit}
+        user={toEdit}
+        onClose={() => setToEdit(null)}
+        onSaved={(saved) => {
+          setUsers((list) => list.map((x) => (x._id === saved._id ? { ...x, ...saved } : x)));
+          setToEdit(null);
+          setToast("User details saved.");
+        }}
+      />
+      <ResetPasswordDialog
+        open={!!toReset}
+        user={toReset}
+        onClose={() => setToReset(null)}
+        onDone={(email) => {
+          setToReset(null);
+          setToast(`New password emailed to ${email}.`);
         }}
       />
       <Snackbar open={!!toast} autoHideDuration={4000} onClose={() => setToast("")} message={toast} />
