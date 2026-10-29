@@ -14,7 +14,12 @@ import {
   Alert,
   Typography,
   Chip,
+  IconButton,
+  Tooltip,
+  Snackbar,
 } from "@mui/material";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
+import { DeleteUserDialog } from "../components/OrderDialogs.jsx";
 import SearchIcon from "@mui/icons-material/Search";
 import { api } from "../api.js";
 import { PageHeader, TableSkeleton, RS } from "../components/ui.jsx";
@@ -36,6 +41,8 @@ export default function Users() {
   const [debounced, setDebounced] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [toDelete, setToDelete] = useState(null);
+  const [toast, setToast] = useState("");
 
   // Debounce the search box so we don't hit the API on every keystroke.
   useEffect(() => {
@@ -104,14 +111,15 @@ export default function Users() {
                 <TableCell>Referral code</TableCell>
                 <TableCell>Wallet</TableCell>
                 <TableCell>Joined</TableCell>
+                <TableCell align="right" />
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
-                <TableSkeleton rows={rowsPerPage > 10 ? 8 : rowsPerPage} cols={6} />
+                <TableSkeleton rows={rowsPerPage > 10 ? 8 : rowsPerPage} cols={7} />
               ) : users.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 6, color: "text.secondary" }}>
+                  <TableCell colSpan={7} align="center" sx={{ py: 6, color: "text.secondary" }}>
                     No users found.
                   </TableCell>
                 </TableRow>
@@ -146,6 +154,17 @@ export default function Users() {
                         {formatDate(u.createdAt)}
                       </Typography>
                     </TableCell>
+                    <TableCell align="right" sx={{ width: 56 }}>
+                      {u.role === "admin" ? (
+                        <Chip size="small" label="Admin" variant="outlined" />
+                      ) : (
+                        <Tooltip title="Delete user">
+                          <IconButton size="small" color="error" onClick={() => setToDelete(u)}>
+                            <DeleteOutlineIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -165,6 +184,24 @@ export default function Users() {
           rowsPerPageOptions={[10, 20, 50, 100]}
         />
       </Card>
+
+      <DeleteUserDialog
+        open={!!toDelete}
+        user={toDelete}
+        onClose={() => setToDelete(null)}
+        onDeleted={(d) => {
+          setToast(
+            d.deletedOrders
+              ? `User deleted with ${d.deletedOrders} order${d.deletedOrders === 1 ? "" : "s"}.`
+              : "User deleted."
+          );
+          setToDelete(null);
+          // Step back a page if this was the last row on it.
+          if (users.length === 1 && page > 0) setPage(page - 1);
+          else load();
+        }}
+      />
+      <Snackbar open={!!toast} autoHideDuration={4000} onClose={() => setToast("")} message={toast} />
     </Box>
   );
 }

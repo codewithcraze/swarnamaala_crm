@@ -6,6 +6,7 @@ import Dashboard from "./pages/Dashboard.jsx";
 import Users from "./pages/Users.jsx";
 import Orders from "./pages/Orders.jsx";
 import OrderDetail from "./pages/OrderDetail.jsx";
+import PrintSheet from "./pages/PrintSheet.jsx";
 import Referrals from "./pages/Referrals.jsx";
 import Coupons from "./pages/Coupons.jsx";
 import Blogs from "./pages/Blogs.jsx";
@@ -19,6 +20,14 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route
+        path="/orders/:id/print"
+        element={
+          <Protected>
+            <PrintSheet />
+          </Protected>
+        }
+      />
       <Route
         element={
           <Protected>

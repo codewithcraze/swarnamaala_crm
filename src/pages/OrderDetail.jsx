@@ -12,7 +12,6 @@ import {
   Alert,
   Stack,
   Link,
-  Divider,
   ImageList,
   ImageListItem,
   CircularProgress,
@@ -22,11 +21,14 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
+  Snackbar,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import DownloadOutlinedIcon from "@mui/icons-material/DownloadOutlined";
-import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
+import PrintOutlinedIcon from "@mui/icons-material/PrintOutlined";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import LockResetOutlinedIcon from "@mui/icons-material/LockResetOutlined";
 import { api, downloadBlob } from "../api.js";
 import {
   PageHeader,
@@ -37,6 +39,8 @@ import {
   sourceLabel,
   isMarketplaceOrder,
 } from "../components/ui.jsx";
+import { EditOrderDialog, EditCustomerDialog, ResetPasswordDialog, DeleteUserDialog } from "../components/OrderDialogs.jsx";
+import OrderNotes from "../components/OrderNotes.jsx";
 
 const STATUSES = ["pending", "processing", "shipped", "delivered", "cancelled"];
 const PAYMENTS = ["unpaid", "paid", "failed", "refunded"];
@@ -60,6 +64,16 @@ function SectionTitle({ children }) {
   );
 }
 
+// Card heading with an optional action on the right.
+function CardHead({ title, action }) {
+  return (
+    <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+      <SectionTitle>{title}</SectionTitle>
+      {action}
+    </Stack>
+  );
+}
+
 export default function OrderDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -68,20 +82,19 @@ export default function OrderDetail() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
-  const [note, setNote] = useState("");
-  const [noteSaving, setNoteSaving] = useState(false);
-  const [noteSaved, setNoteSaved] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [editOrderOpen, setEditOrderOpen] = useState(false);
+  const [editCustomerOpen, setEditCustomerOpen] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [deleteUserOpen, setDeleteUserOpen] = useState(false);
+  const [toast, setToast] = useState("");
 
   function load() {
     setLoading(true);
     api(`/api/orders/${id}`)
-      .then((d) => {
-        setOrder(d.order);
-        setNote(d.order.adminNote || "");
-      })
+      .then((d) => setOrder(d.order))
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }
@@ -121,24 +134,6 @@ export default function OrderDetail() {
     }
   }
 
-  async function saveNote() {
-    setNoteSaving(true);
-    setNoteSaved(false);
-    try {
-      await api(`/api/orders/${id}/note`, {
-        method: "PATCH",
-        body: JSON.stringify({ adminNote: note }),
-      });
-      setOrder((o) => ({ ...o, adminNote: note }));
-      setNoteSaved(true);
-      setTimeout(() => setNoteSaved(false), 2500);
-    } catch (e) {
-      alert(e.message);
-    } finally {
-      setNoteSaving(false);
-    }
-  }
-
   async function deleteOrder() {
     setDeleting(true);
     try {
@@ -169,7 +164,7 @@ export default function OrderDetail() {
         <Skeleton variant="rounded" height={120} sx={{ mb: 2 }} />
         <Grid container spacing={2}>
           {[0, 1, 2].map((i) => (
-            <Grid item xs={12} md={4} key={i}>
+            <Grid size={{ xs: 12, md: 4 }} key={i}>
               <Skeleton variant="rounded" height={200} />
             </Grid>
           ))}
@@ -181,6 +176,7 @@ export default function OrderDetail() {
   if (!order) return <Alert severity="warning">Order not found.</Alert>;
 
   const images = order.images || [];
+  const customer = order.user;
 
   return (
     <Box>
@@ -202,6 +198,9 @@ export default function OrderDetail() {
             <SourceChip source={order.source} />
             <PaymentChip status={order.paymentStatus} />
             <StatusChip status={order.status} />
+            <Button size="small" variant="outlined" startIcon={<EditOutlinedIcon />} onClick={() => setEditOrderOpen(true)}>
+              Edit order
+            </Button>
             <Button
               size="small"
               color="error"
@@ -217,16 +216,50 @@ export default function OrderDetail() {
 
       <Grid container spacing={2} alignItems="flex-start">
         {/* LEFT: customer + shipping + payment */}
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Stack spacing={2}>
             <Card>
               <CardContent>
-                <SectionTitle>Customer</SectionTitle>
-                <Typography sx={{ fontWeight: 600, mt: 0.5 }}>{order.user?.name || "—"}</Typography>
-                <Typography variant="body2" color="text.secondary">{order.user?.email}</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {order.shippingAddress?.phone || order.user?.phone}
+                <CardHead
+                  title="Customer"
+                  action={
+                    customer?._id && (
+                      <Button size="small" startIcon={<EditOutlinedIcon />} onClick={() => setEditCustomerOpen(true)}>
+                        Edit
+                      </Button>
+                    )
+                  }
+                />
+                <Typography sx={{ fontWeight: 600, mt: 0.5 }}>{customer?.name || "—"}</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ wordBreak: "break-all" }}>
+                  {customer?.email}
                 </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {customer?.phone || order.shippingAddress?.phone}
+                </Typography>
+                {customer?._id && (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="warning"
+                    startIcon={<LockResetOutlinedIcon />}
+                    onClick={() => setResetOpen(true)}
+                    sx={{ mt: 1.5 }}
+                  >
+                    Reset password
+                  </Button>
+                )}
+                {customer?._id && (
+                  <Button
+                    size="small"
+                    color="error"
+                    startIcon={<DeleteOutlineIcon />}
+                    onClick={() => setDeleteUserOpen(true)}
+                    sx={{ mt: 1.5, ml: 1 }}
+                  >
+                    Delete user
+                  </Button>
+                )}
               </CardContent>
             </Card>
 
@@ -249,79 +282,89 @@ export default function OrderDetail() {
             )}
 
             {order.shippingAddress?.line1 && (
-            <Card>
-              <CardContent>
-                <SectionTitle>Ship to</SectionTitle>
-                <Typography sx={{ mt: 0.5 }}>{order.shippingAddress?.fullName}</Typography>
-                <Typography variant="body2" color="text.secondary">{order.shippingAddress?.line1}</Typography>
-                {order.shippingAddress?.line2 && (
-                  <Typography variant="body2" color="text.secondary">{order.shippingAddress.line2}</Typography>
-                )}
-                <Typography variant="body2" color="text.secondary">
-                  {order.shippingAddress?.city}, {order.shippingAddress?.state} - {order.shippingAddress?.pincode}
-                </Typography>
-              </CardContent>
-            </Card>
+              <Card>
+                <CardContent>
+                  <SectionTitle>Ship to</SectionTitle>
+                  <Typography sx={{ mt: 0.5 }}>{order.shippingAddress?.fullName}</Typography>
+                  <Typography variant="body2" color="text.secondary">{order.shippingAddress?.line1}</Typography>
+                  {order.shippingAddress?.line2 && (
+                    <Typography variant="body2" color="text.secondary">{order.shippingAddress.line2}</Typography>
+                  )}
+                  <Typography variant="body2" color="text.secondary">
+                    {order.shippingAddress?.city}, {order.shippingAddress?.state} - {order.shippingAddress?.pincode}
+                  </Typography>
+                  {order.shippingAddress?.phone && (
+                    <Typography variant="body2" color="text.secondary">{order.shippingAddress.phone}</Typography>
+                  )}
+                </CardContent>
+              </Card>
             )}
 
             {!isMarketplaceOrder(order) && (
-            <Card>
-              <CardContent>
-                <SectionTitle>Payment</SectionTitle>
-                <Typography variant="body2" sx={{ mt: 0.5 }}>
-                  Total{" "}
-                  <Box component="b" sx={{ color: "text.primary" }}>
-                    {RS}{order.total ?? order.amount}
-                  </Box>{" "}
-                  <Typography component="span" variant="caption" color="text.secondary">
-                    ({RS}{order.subtotal ?? "—"} + {RS}{order.gst ?? 0} GST)
+              <Card>
+                <CardContent>
+                  <SectionTitle>Payment</SectionTitle>
+                  <Typography variant="body2" sx={{ mt: 0.5 }}>
+                    Total{" "}
+                    <Box component="b" sx={{ color: "text.primary" }}>
+                      {RS}{order.total ?? order.amount}
+                    </Box>{" "}
+                    <Typography component="span" variant="caption" color="text.secondary">
+                      ({RS}{order.subtotal ?? "—"} + {RS}{order.gst ?? 0} GST)
+                    </Typography>
                   </Typography>
-                </Typography>
-                {order.discount > 0 && (
-                  <Typography variant="body2" sx={{ color: "success.main", mt: 0.5 }}>
-                    Coupon {order.couponCode ? <b>{order.couponCode}</b> : null} · saved {RS}{order.discount}
-                  </Typography>
-                )}
-                {order.razorpayPaymentId && (
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
-                    Payment ID:{" "}
-                    <Box component="b" sx={{ color: "text.primary", fontFamily: "monospace" }}>
-                      {order.razorpayPaymentId}
-                    </Box>
-                  </Typography>
-                )}
-                {order.razorpayOrderId && (
-                  <Typography variant="caption" color="text.secondary" display="block">
-                    Rzp order: {order.razorpayOrderId}
-                  </Typography>
-                )}
-                {order.paidAt && (
-                  <Typography variant="caption" color="text.secondary" display="block">
-                    Paid: {fmt(order.paidAt)}
-                  </Typography>
-                )}
-                {order.paymentStatus === "failed" && (
-                  <Alert severity="warning" sx={{ mt: 1 }} icon={false}>
-                    {order.paymentFailureReason}
-                    {order.paymentFailedAt && (
-                      <Typography variant="caption" display="block">
-                        Failed: {fmt(order.paymentFailedAt)}
-                      </Typography>
-                    )}
-                  </Alert>
-                )}
-              </CardContent>
-            </Card>
+                  {order.discount > 0 && (
+                    <Typography variant="body2" sx={{ color: "success.main", mt: 0.5 }}>
+                      Coupon {order.couponCode ? <b>{order.couponCode}</b> : null} · saved {RS}{order.discount}
+                    </Typography>
+                  )}
+                  {order.razorpayPaymentId && (
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
+                      Payment ID:{" "}
+                      <Box component="b" sx={{ color: "text.primary", fontFamily: "monospace" }}>
+                        {order.razorpayPaymentId}
+                      </Box>
+                    </Typography>
+                  )}
+                  {order.razorpayOrderId && (
+                    <Typography variant="caption" color="text.secondary" display="block">
+                      Rzp order: {order.razorpayOrderId}
+                    </Typography>
+                  )}
+                  {order.paidAt && (
+                    <Typography variant="caption" color="text.secondary" display="block">
+                      Paid: {fmt(order.paidAt)}
+                    </Typography>
+                  )}
+                  {order.paymentStatus === "failed" && (
+                    <Alert severity="warning" sx={{ mt: 1 }} icon={false}>
+                      {order.paymentFailureReason}
+                      {order.paymentFailedAt && (
+                        <Typography variant="caption" display="block">
+                          Failed: {fmt(order.paymentFailedAt)}
+                        </Typography>
+                      )}
+                    </Alert>
+                  )}
+                </CardContent>
+              </Card>
             )}
           </Stack>
         </Grid>
 
-        {/* MIDDLE: item + controls + note */}
-        <Grid item xs={12} md={4}>
+        {/* MIDDLE: item + controls + notes */}
+        <Grid size={{ xs: 12, md: 4 }}>
           <Stack spacing={2}>
             <Card>
               <CardContent>
-                <SectionTitle>Item</SectionTitle>
+                <CardHead
+                  title="Item"
+                  action={
+                    <Button size="small" startIcon={<EditOutlinedIcon />} onClick={() => setEditOrderOpen(true)}>
+                      Edit
+                    </Button>
+                  }
+                />
                 <Typography sx={{ fontWeight: 600, mt: 0.5 }}>
                   {order.product || "Custom Photo Magnet"}
                 </Typography>
@@ -333,7 +376,7 @@ export default function OrderDetail() {
                     <Typography variant="caption" color="text.secondary">
                       Customer note:
                     </Typography>
-                    <Typography variant="body2">{order.note}</Typography>
+                    <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>{order.note}</Typography>
                   </Box>
                 )}
               </CardContent>
@@ -379,35 +422,19 @@ export default function OrderDetail() {
 
             <Card>
               <CardContent>
-                <SectionTitle>Internal note</SectionTitle>
-                <TextField
-                  multiline
-                  minRows={4}
-                  fullWidth
-                  size="small"
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  placeholder="Add a private note about this order (not visible to the customer)…"
-                  sx={{ mt: 1.5 }}
+                <SectionTitle>Internal notes ({(order.adminNotes || []).length})</SectionTitle>
+                <OrderNotes
+                  orderId={order._id}
+                  notes={order.adminNotes}
+                  onChange={(adminNotes) => setOrder((o) => ({ ...o, adminNotes }))}
                 />
-                <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mt: 1.5 }}>
-                  <Button variant="contained" onClick={saveNote} disabled={noteSaving}>
-                    {noteSaving ? "Saving…" : "Save note"}
-                  </Button>
-                  {noteSaved && (
-                    <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: "success.main" }}>
-                      <CheckCircleOutlineIcon fontSize="small" />
-                      <Typography variant="body2">Saved</Typography>
-                    </Stack>
-                  )}
-                </Stack>
               </CardContent>
             </Card>
           </Stack>
         </Grid>
 
         {/* RIGHT: referral + photos */}
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Stack spacing={2}>
             {order.referrer && (
               <Card>
@@ -427,20 +454,39 @@ export default function OrderDetail() {
 
             <Card>
               <CardContent>
-                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1.5 }}>
+                <Stack
+                  direction="row"
+                  alignItems="center"
+                  justifyContent="space-between"
+                  flexWrap="wrap"
+                  useFlexGap
+                  spacing={1}
+                  sx={{ mb: 1.5 }}
+                >
                   <SectionTitle>Photos ({images.length})</SectionTitle>
                   {images.length > 0 && (
-                    <Button
-                      size="small"
-                      variant="contained"
-                      onClick={downloadAll}
-                      disabled={downloading}
-                      startIcon={
-                        downloading ? <CircularProgress size={14} color="inherit" /> : <DownloadOutlinedIcon />
-                      }
-                    >
-                      {downloading ? "Preparing…" : "Download ZIP"}
-                    </Button>
+                    <Stack direction="row" spacing={1}>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        component={RouterLink}
+                        to={`/orders/${id}/print`}
+                        startIcon={<PrintOutlinedIcon />}
+                      >
+                        Print A4
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        onClick={downloadAll}
+                        disabled={downloading}
+                        startIcon={
+                          downloading ? <CircularProgress size={14} color="inherit" /> : <DownloadOutlinedIcon />
+                        }
+                      >
+                        {downloading ? "Preparing…" : "ZIP"}
+                      </Button>
+                    </Stack>
                   )}
                 </Stack>
                 {images.length === 0 ? (
@@ -479,6 +525,55 @@ export default function OrderDetail() {
           </Stack>
         </Grid>
       </Grid>
+
+      <EditOrderDialog
+        open={editOrderOpen}
+        order={order}
+        onClose={() => setEditOrderOpen(false)}
+        onSaved={(o) => {
+          setOrder(o);
+          setEditOrderOpen(false);
+          setToast("Order updated.");
+        }}
+      />
+      <EditCustomerDialog
+        open={editCustomerOpen}
+        user={customer}
+        onClose={() => setEditCustomerOpen(false)}
+        onSaved={(u) => {
+          setOrder((o) => ({ ...o, user: { ...o.user, ...u } }));
+          setEditCustomerOpen(false);
+          setToast("Customer details saved.");
+        }}
+      />
+      <ResetPasswordDialog
+        open={resetOpen}
+        user={customer}
+        onClose={() => setResetOpen(false)}
+        onDone={(email) => {
+          setResetOpen(false);
+          setToast(`New password emailed to ${email}.`);
+        }}
+      />
+
+      <DeleteUserDialog
+        open={deleteUserOpen}
+        user={customer}
+        onClose={() => setDeleteUserOpen(false)}
+        onDeleted={(d) => {
+          setDeleteUserOpen(false);
+          if (d.deletedOrders) navigate("/users", { replace: true });
+          else load();
+        }}
+      />
+
+      <Snackbar
+        open={!!toast}
+        autoHideDuration={4000}
+        onClose={() => setToast("")}
+        message={toast}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      />
 
       <Dialog open={confirmOpen} onClose={() => !deleting && setConfirmOpen(false)}>
         <DialogTitle>Delete this order?</DialogTitle>
