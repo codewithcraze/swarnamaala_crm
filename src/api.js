@@ -25,6 +25,25 @@ export async function uploadFile(file) {
   return data.url;
 }
 
+// Upload a file (multipart field "file") to any admin endpoint; returns JSON.
+export async function apiUpload(path, file) {
+  const fd = new FormData();
+  fd.append("file", file);
+  const token = getToken();
+  const res = await fetch(`${API_URL}${path}`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: fd,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) {
+    setToken(null);
+    window.location.href = "/login";
+  }
+  if (!res.ok) throw new Error(data.error || (res.status === 413 ? "File is too large (max 10 MB)." : "Upload failed"));
+  return data;
+}
+
 // Fetch a path as a Blob (with auth) and trigger a browser download.
 export async function downloadBlob(path, filename) {
   const token = getToken();

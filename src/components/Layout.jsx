@@ -25,6 +25,8 @@ import CardGiftcardOutlinedIcon from "@mui/icons-material/CardGiftcardOutlined";
 import LocalOfferOutlinedIcon from "@mui/icons-material/LocalOfferOutlined";
 import ArticleOutlinedIcon from "@mui/icons-material/ArticleOutlined";
 import LogoutOutlinedIcon from "@mui/icons-material/LogoutOutlined";
+import CampaignOutlinedIcon from "@mui/icons-material/CampaignOutlined";
+import PhotoLibraryOutlinedIcon from "@mui/icons-material/PhotoLibraryOutlined";
 import { setToken } from "../api.js";
 import Logo, { LogoMark } from "./Logo.jsx";
 
@@ -36,12 +38,15 @@ const LINKS = [
   { to: "/orders", label: "Orders", icon: <Inventory2OutlinedIcon /> },
   { to: "/referrals", label: "Referrals", icon: <CardGiftcardOutlinedIcon /> },
   { to: "/coupons", label: "Coupons", icon: <LocalOfferOutlinedIcon /> },
+  { to: "/campaigns", label: "Campaigns", icon: <CampaignOutlinedIcon /> },
+  { to: "/media", label: "Email images", icon: <PhotoLibraryOutlinedIcon /> },
   { to: "/blogs", label: "Blog", icon: <ArticleOutlinedIcon /> },
 ];
 
 function pageTitle(pathname) {
   if (pathname === "/") return "Dashboard";
   const seg = pathname.split("/")[1] || "";
+  if (seg === "media") return "Email images";
   return seg.charAt(0).toUpperCase() + seg.slice(1);
 }
 
