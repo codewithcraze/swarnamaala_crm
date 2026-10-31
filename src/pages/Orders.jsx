@@ -46,6 +46,7 @@ import {
   sourceColor,
   isMarketplaceOrder,
 } from "../components/ui.jsx";
+import { useAgents, AgentSelect, assignAgent } from "../components/agents.jsx";
 
 const STATUSES = ["pending", "processing", "shipped", "delivered", "cancelled"];
 const PAYMENTS = ["unpaid", "paid", "failed", "refunded"];
@@ -73,6 +74,11 @@ export default function Orders() {
   const [sourceFilter, setSourceFilter] = useState(
     () => new URLSearchParams(window.location.search).get("source") || ""
   );
+  // /orders?agent=<id> or ?agent=none (from the dashboard agent cards).
+  const [agentFilter, setAgentFilter] = useState(
+    () => new URLSearchParams(window.location.search).get("agent") || ""
+  );
+  const { agents } = useAgents();
   const [extSearch, setExtSearch] = useState("");
   const [extDebounced, setExtDebounced] = useState("");
   const [error, setError] = useState("");
@@ -89,6 +95,7 @@ export default function Orders() {
     if (filter) params.set("status", filter);
     if (paymentFilter) params.set("paymentStatus", paymentFilter);
     if (sourceFilter) params.set("source", sourceFilter);
+    if (agentFilter) params.set("agent", agentFilter);
     if (extDebounced) params.set("externalOrderId", extDebounced);
     api(`/api/orders?${params.toString()}`)
       .then((d) => {
@@ -97,7 +104,7 @@ export default function Orders() {
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [page, rowsPerPage, filter, paymentFilter, sourceFilter, extDebounced]);
+  }, [page, rowsPerPage, filter, paymentFilter, sourceFilter, agentFilter, extDebounced]);
 
   // Debounce the platform order-id search.
   useEffect(() => {
@@ -135,6 +142,23 @@ export default function Orders() {
         body: JSON.stringify({ paymentStatus }),
       });
       setOrders((prev) => prev.map((o) => (o._id === id ? { ...o, paymentStatus } : o)));
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function updateAgent(id, agentId) {
+    setBusyId(id);
+    try {
+      const d = await assignAgent(id, agentId);
+      setOrders((prev) => prev.map((o) => (o._id === id ? { ...o, agent: d.agent ? { _id: agentId, name: d.agent.name } : null } : o)));
+      // Drop the row if it no longer matches the agent filter.
+      if (agentFilter && agentFilter !== (agentId || "none")) {
+        setOrders((prev) => prev.filter((o) => o._id !== id));
+        setTotal((t) => Math.max(0, t - 1));
+      }
     } catch (e) {
       alert(e.message);
     } finally {
@@ -223,6 +247,22 @@ export default function Orders() {
           ))}
         </TextField>
         <TextField
+          select
+          size="small"
+          label="Agent"
+          value={agentFilter}
+          onChange={changeFilter(setAgentFilter)}
+          sx={{ minWidth: 160 }}
+        >
+          <MenuItem value="">All agents</MenuItem>
+          <MenuItem value="none">No agent</MenuItem>
+          {agents.map((a) => (
+            <MenuItem key={a._id} value={a._id}>
+              {a.name}
+            </MenuItem>
+          ))}
+        </TextField>
+        <TextField
           size="small"
           label="Platform order ID"
           value={extSearch}
@@ -249,12 +289,13 @@ export default function Orders() {
 
       <Card>
         <TableContainer sx={{ maxWidth: "100%" }}>
-          <Table sx={{ minWidth: 1080 }} size="small">
+          <Table sx={{ minWidth: 1220 }} size="small">
             <TableHead>
               <TableRow>
                 <TableCell>Source</TableCell>
                 <TableCell>Photos</TableCell>
                 <TableCell>Customer</TableCell>
+                <TableCell>Agent</TableCell>
                 <TableCell>Qty</TableCell>
                 <TableCell>Total</TableCell>
                 <TableCell>Ship to</TableCell>
@@ -266,10 +307,10 @@ export default function Orders() {
             </TableHead>
             <TableBody>
               {loading ? (
-                <TableSkeleton rows={rowsPerPage > 10 ? 8 : rowsPerPage} cols={10} />
+                <TableSkeleton rows={rowsPerPage > 10 ? 8 : rowsPerPage} cols={11} />
               ) : orders.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} align="center" sx={{ py: 6, color: "text.secondary" }}>
+                  <TableCell colSpan={11} align="center" sx={{ py: 6, color: "text.secondary" }}>
                     No orders found.
                   </TableCell>
                 </TableRow>
@@ -322,6 +363,16 @@ export default function Orders() {
                         <Typography variant="caption" color="text.secondary">
                           {o.shippingAddress?.phone}
                         </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <AgentSelect
+                          agents={agents}
+                          value={o.agent?._id || o.agent || ""}
+                          disabled={busyId === o._id}
+                          onChange={(id) => updateAgent(o._id, id)}
+                          label=""
+                          sx={{ minWidth: 130, "& .MuiInputBase-root": { fontSize: 12, height: 30 } }}
+                        />
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2" sx={{ fontWeight: 600 }}>

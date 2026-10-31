@@ -16,6 +16,7 @@ import CardGiftcardOutlinedIcon from "@mui/icons-material/CardGiftcardOutlined";
 import { api } from "../api.js";
 import { Link as RouterLink } from "react-router-dom";
 import { PageHeader, RS, SOURCES, sourceColor } from "../components/ui.jsx";
+import AgentsPanel from "../components/AgentsPanel.jsx";
 
 function StatCard({ label, value, icon, color }) {
   return (
@@ -173,6 +174,8 @@ export default function Dashboard() {
           </Grid>
         ))}
       </Grid>
+
+      <AgentsPanel />
     </Box>
   );
 }

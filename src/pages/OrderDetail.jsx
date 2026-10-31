@@ -41,6 +41,7 @@ import {
 } from "../components/ui.jsx";
 import { EditOrderDialog, EditCustomerDialog, ResetPasswordDialog, DeleteUserDialog } from "../components/OrderDialogs.jsx";
 import OrderNotes from "../components/OrderNotes.jsx";
+import { useAgents, AgentSelect, assignAgent } from "../components/agents.jsx";
 
 const STATUSES = ["pending", "processing", "shipped", "delivered", "cancelled"];
 const PAYMENTS = ["unpaid", "paid", "failed", "refunded"];
@@ -90,6 +91,7 @@ export default function OrderDetail() {
   const [resetOpen, setResetOpen] = useState(false);
   const [deleteUserOpen, setDeleteUserOpen] = useState(false);
   const [toast, setToast] = useState("");
+  const { agents } = useAgents();
 
   function load() {
     setLoading(true);
@@ -127,6 +129,19 @@ export default function OrderDetail() {
         body: JSON.stringify({ paymentStatus }),
       });
       setOrder((o) => ({ ...o, paymentStatus }));
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function updateAgent(agentId) {
+    setBusy(true);
+    try {
+      const d = await assignAgent(id, agentId);
+      setOrder((o) => ({ ...o, agent: d.agent ? { _id: agentId, name: d.agent.name } : null }));
+      setToast(d.agent ? `Assigned to ${d.agent.name}.` : "Agent removed.");
     } catch (e) {
       alert(e.message);
     } finally {
@@ -386,6 +401,14 @@ export default function OrderDetail() {
               <CardContent>
                 <SectionTitle>Update</SectionTitle>
                 <Stack spacing={2} sx={{ mt: 1.5 }}>
+                  <AgentSelect
+                    agents={agents}
+                    value={order.agent?._id || order.agent || ""}
+                    disabled={busy}
+                    onChange={updateAgent}
+                    label="Taken by agent"
+                    sx={{ width: "100%" }}
+                  />
                   <TextField
                     select
                     size="small"
