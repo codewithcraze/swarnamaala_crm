@@ -22,7 +22,7 @@ import AddIcon from "@mui/icons-material/Add";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import { api } from "../api.js";
-import { PageHeader, TableSkeleton } from "../components/ui.jsx";
+import { PageHeader, TableSkeleton, usePaged, ListPagination } from "../components/ui.jsx";
 
 const STATUS = {
   draft: { label: "Draft", color: "default" },
@@ -45,6 +45,7 @@ export default function Campaigns() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
+  const paged = usePaged(campaigns);
 
   function load() {
     setLoading(true);
@@ -135,7 +136,7 @@ export default function Campaigns() {
                   </TableCell>
                 </TableRow>
               ) : (
-                campaigns.map((c) => {
+                paged.rows.map((c) => {
                   const total = c.stats?.total || 0;
                   const done = (c.stats?.sent || 0) + (c.stats?.failed || 0) + (c.stats?.skipped || 0);
                   return (
@@ -186,6 +187,7 @@ export default function Campaigns() {
             </TableBody>
           </Table>
         </TableContainer>
+        {!loading && campaigns.length > 0 && <ListPagination {...paged.paginationProps} />}
       </Card>
     </Box>
   );

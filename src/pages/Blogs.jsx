@@ -22,14 +22,14 @@ import AddIcon from "@mui/icons-material/Add";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import { api } from "../api.js";
-import { PageHeader, TableSkeleton } from "../components/ui.jsx";
+import { PageHeader, TableSkeleton, PAGE_SIZE, PAGE_SIZE_OPTIONS } from "../components/ui.jsx";
 
 export default function Blogs() {
   const [blogs, setBlogs] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [rowsPerPage, setRowsPerPage] = useState(PAGE_SIZE);
 
   function load() {
     setLoading(true);
@@ -156,7 +156,7 @@ export default function Blogs() {
               setRowsPerPage(parseInt(e.target.value, 10));
               setPage(0);
             }}
-            rowsPerPageOptions={[10, 25, 50]}
+            rowsPerPageOptions={PAGE_SIZE_OPTIONS}
           />
         )}
       </Card>

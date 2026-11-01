@@ -17,7 +17,7 @@ import {
   Typography,
 } from "@mui/material";
 import { api } from "../api.js";
-import { RS, SOURCES } from "./ui.jsx";
+import { RS, SOURCES, MANUAL_SOURCES } from "./ui.jsx";
 
 const ADDRESS_FIELDS = ["fullName", "phone", "line1", "line2", "city", "state", "pincode"];
 
@@ -35,6 +35,8 @@ function orderToForm(o) {
     discount: o.discount ?? 0,
     couponCode: o.couponCode || "",
     total: o.total ?? o.amount ?? "",
+    customerName: o.customerName || "",
+    customerPhone: o.customerPhone || "",
     address: Object.fromEntries(ADDRESS_FIELDS.map((f) => [f, a[f] || ""])),
   };
 }
@@ -55,6 +57,8 @@ export function EditOrderDialog({ open, order, onClose, onSaved }) {
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const setAddr = (k) => (e) => setForm((f) => ({ ...f, address: { ...f.address, [k]: e.target.value } }));
   const isWebsite = form.source === "website";
+  const isManual = order.entry === "manual";
+  const sourceOptions = isManual ? SOURCES.filter((s) => MANUAL_SOURCES.includes(s.id)) : SOURCES;
 
   async function save() {
     setSaving(true);
@@ -78,6 +82,15 @@ export function EditOrderDialog({ open, order, onClose, onSaved }) {
           total: form.total,
         });
       }
+      if (isManual) {
+        Object.assign(body, {
+          customerName: form.customerName,
+          customerPhone: form.customerPhone,
+          subtotal: form.total === "" ? 0 : form.total,
+          gst: 0,
+          total: form.total === "" ? 0 : form.total,
+        });
+      }
       const d = await api(`/api/orders/${order._id}`, { method: "PATCH", body: JSON.stringify(body) });
       onSaved(d.order);
     } catch (e) {
@@ -94,6 +107,23 @@ export function EditOrderDialog({ open, order, onClose, onSaved }) {
       <DialogTitle>Edit order #{String(order._id).slice(-8)}</DialogTitle>
       <DialogContent dividers>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
+        {isManual && (
+          <>
+            <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>Customer</Typography>
+            <Grid container spacing={2} sx={{ mb: 2, mt: 0 }}>
+              <Grid size={{ xs: 12, sm: 5 }}>
+                <TextField fullWidth size="small" label="Customer name" required value={form.customerName} onChange={set("customerName")} />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <TextField fullWidth size="small" label="Phone number" value={form.customerPhone} onChange={set("customerPhone")} />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 3 }}>
+                <TextField fullWidth size="small" type="number" label="Amount" value={form.total} onChange={set("total")} InputProps={money} />
+              </Grid>
+            </Grid>
+          </>
+        )}
 
         <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>Item</Typography>
         <Grid container spacing={2} sx={{ mb: 2, mt: 0 }}>
@@ -115,14 +145,21 @@ export function EditOrderDialog({ open, order, onClose, onSaved }) {
         <Grid container spacing={2} sx={{ mb: 2, mt: 0 }}>
           <Grid size={{ xs: 12, sm: 6 }}>
             <TextField select fullWidth size="small" label="Order came from" value={form.source} onChange={set("source")}>
-              {SOURCES.map((s) => (
+              {sourceOptions.map((s) => (
                 <MenuItem key={s.id} value={s.id}>{s.id === "website" ? "Main site" : s.label}</MenuItem>
               ))}
             </TextField>
           </Grid>
           {!isWebsite && (
             <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField fullWidth size="small" label="Platform order ID" value={form.externalOrderId} onChange={set("externalOrderId")} required />
+              <TextField
+                fullWidth
+                size="small"
+                label={form.source === "self" ? "Order / reference ID (optional)" : "Platform order ID"}
+                value={form.externalOrderId}
+                onChange={set("externalOrderId")}
+                required={form.source !== "self"}
+              />
             </Grid>
           )}
         </Grid>
@@ -360,6 +397,66 @@ export function DeleteUserDialog({ open, user, onClose, onDeleted }) {
           {busy ? "Deleting…" : "Delete"}
         </Button>
       </DialogActions>
+    </Dialog>
+  );
+}
+
+// Create a login for a marketplace customer who sent photos without an
+// account. The server emails the password; existing emails are just linked.
+export function GenerateCredentialsDialog({ open, order, onClose, onDone }) {
+  const [form, setForm] = useState({ name: "", email: "", phone: "" });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      setForm({
+        name: order?.customerName || order?.shippingAddress?.fullName || "",
+        email: "",
+        phone: order?.customerPhone || order?.shippingAddress?.phone || "",
+      });
+      setError("");
+    }
+  }, [open, order]);
+
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  async function submit(e) {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      const d = await api(`/api/orders/${order._id}/credentials`, { method: "POST", body: JSON.stringify(form) });
+      onDone(d);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onClose={() => !busy && onClose()} fullWidth maxWidth="xs">
+      <form onSubmit={submit}>
+        <DialogTitle>Generate login</DialogTitle>
+        <DialogContent dividers>
+          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+          <DialogContentText sx={{ mb: 2 }}>
+            A random password is created and emailed to the customer, and this order is linked to their account so they can
+            sign in and change photos until it ships. If the email already has an account, the order is linked to it and
+            their password isn't changed.
+          </DialogContentText>
+          <TextField fullWidth required size="small" label="Name" value={form.name} onChange={set("name")} sx={{ mb: 2 }} />
+          <TextField fullWidth required autoFocus size="small" type="email" label="Email" value={form.email} onChange={set("email")} sx={{ mb: 2 }} />
+          <TextField fullWidth size="small" label="Phone (optional)" value={form.phone} onChange={set("phone")} />
+        </DialogContent>
+        <DialogActions>
+          <Button color="inherit" onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button type="submit" variant="contained" disabled={busy || !form.email.trim() || !form.name.trim()} startIcon={busy ? <CircularProgress size={16} color="inherit" /> : null}>
+            {busy ? "Creating…" : "Create & email login"}
+          </Button>
+        </DialogActions>
+      </form>
     </Dialog>
   );
 }

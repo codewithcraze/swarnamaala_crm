@@ -25,7 +25,7 @@ import {
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import { api } from "../api.js";
-import { PageHeader, TableSkeleton, RS } from "../components/ui.jsx";
+import { PageHeader, TableSkeleton, RS, PAGE_SIZE, PAGE_SIZE_OPTIONS } from "../components/ui.jsx";
 
 const EMPTY_FORM = {
   code: "",
@@ -46,7 +46,7 @@ export default function Coupons() {
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState(null);
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [rowsPerPage, setRowsPerPage] = useState(PAGE_SIZE);
 
   function load() {
     setLoading(true);
@@ -369,7 +369,7 @@ export default function Coupons() {
               setRowsPerPage(parseInt(e.target.value, 10));
               setPage(0);
             }}
-            rowsPerPageOptions={[10, 25, 50]}
+            rowsPerPageOptions={PAGE_SIZE_OPTIONS}
           />
         )}
       </Card>

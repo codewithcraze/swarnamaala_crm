@@ -26,18 +26,22 @@ import LocalOfferOutlinedIcon from "@mui/icons-material/LocalOfferOutlined";
 import ArticleOutlinedIcon from "@mui/icons-material/ArticleOutlined";
 import LogoutOutlinedIcon from "@mui/icons-material/LogoutOutlined";
 import CampaignOutlinedIcon from "@mui/icons-material/CampaignOutlined";
+import SupportAgentOutlinedIcon from "@mui/icons-material/SupportAgentOutlined";
 import PhotoLibraryOutlinedIcon from "@mui/icons-material/PhotoLibraryOutlined";
+import StorefrontOutlinedIcon from "@mui/icons-material/StorefrontOutlined";
 import { setToken } from "../api.js";
 import Logo, { LogoMark } from "./Logo.jsx";
 
-const DRAWER_WIDTH = 248;
+const DRAWER_WIDTH = 220;
 
 const LINKS = [
   { to: "/", label: "Dashboard", icon: <DashboardOutlinedIcon />, end: true },
   { to: "/users", label: "Users", icon: <PeopleOutlinedIcon /> },
   { to: "/orders", label: "Orders", icon: <Inventory2OutlinedIcon /> },
+  { to: "/manual-orders", label: "Marketplace orders", icon: <StorefrontOutlinedIcon /> },
   { to: "/referrals", label: "Referrals", icon: <CardGiftcardOutlinedIcon /> },
   { to: "/coupons", label: "Coupons", icon: <LocalOfferOutlinedIcon /> },
+  { to: "/agents", label: "Agents", icon: <SupportAgentOutlinedIcon /> },
   { to: "/campaigns", label: "Campaigns", icon: <CampaignOutlinedIcon /> },
   { to: "/media", label: "Email images", icon: <PhotoLibraryOutlinedIcon /> },
   { to: "/blogs", label: "Blog", icon: <ArticleOutlinedIcon /> },
@@ -47,6 +51,7 @@ function pageTitle(pathname) {
   if (pathname === "/") return "Dashboard";
   const seg = pathname.split("/")[1] || "";
   if (seg === "media") return "Email images";
+  if (seg === "manual-orders") return "Marketplace orders";
   return seg.charAt(0).toUpperCase() + seg.slice(1);
 }
 
@@ -64,11 +69,10 @@ export default function Layout() {
 
   const drawerContent = (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <Toolbar sx={{ gap: 1.5, px: 2.5, bgcolor: "black" }}>
-        <img src='/logo.png' width="100%" height="70px" />
+      <Toolbar sx={{ px: 2, bgcolor: "black", justifyContent: "center" }}>
+        <Box component="img" src="/logo.png" alt="Swarnamaala" sx={{ maxWidth: "100%", height: 44, objectFit: "contain" }} />
       </Toolbar>
-      <Divider />
-      <List sx={{ px: 1.5, py: 1.5, flexGrow: 1 }}>
+      <List sx={{ px: 1, py: 1, flexGrow: 1, overflowY: "auto" }}>
         {LINKS.map((l) => (
           <ListItemButton
             key={l.to}
@@ -77,10 +81,12 @@ export default function Layout() {
             end={l.end}
             onClick={() => setMobileOpen(false)}
             sx={{
-              borderRadius: 2,
-              mb: 0.5,
+              borderRadius: 1.5,
+              mb: 0.25,
+              py: 0.6,
               color: "text.secondary",
-              "& .MuiListItemIcon-root": { color: "text.secondary", minWidth: 38 },
+              "& .MuiListItemIcon-root": { color: "text.secondary", minWidth: 32 },
+              "& .MuiListItemText-primary": { fontSize: 13 },
               "&.active": {
                 bgcolor: "action.selected",
                 color: "text.primary",
@@ -96,14 +102,13 @@ export default function Layout() {
         ))}
       </List>
       <Divider />
-      <Box sx={{ p: 1.5 }}>
+      <Box sx={{ p: 1 }}>
         <Button
           fullWidth
-          variant="outlined"
           color="inherit"
           startIcon={<LogoutOutlinedIcon />}
           onClick={logout}
-          sx={{ justifyContent: "flex-start", color: "text.secondary", borderColor: "divider" }}
+          sx={{ justifyContent: "flex-start", color: "text.secondary", px: 1.5 }}
         >
           Sign out
         </Button>
@@ -179,12 +184,14 @@ export default function Layout() {
         sx={{
           flexGrow: 1,
           width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
-          p: { xs: 2, sm: 3 },
-          pt: { xs: 9, md: 3 }, // offset for mobile app bar
+          p: { xs: 1.5, sm: 2.5 },
+          pt: { xs: 8.5, md: 2.5 }, // offset for mobile app bar
           minWidth: 0,
         }}
       >
-        <Outlet />
+        <Box sx={{ maxWidth: 1600, mx: "auto" }}>
+          <Outlet />
+        </Box>
       </Box>
     </Box>
   );

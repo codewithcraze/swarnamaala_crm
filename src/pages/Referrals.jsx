@@ -17,7 +17,16 @@ import {
   Chip,
 } from "@mui/material";
 import { api } from "../api.js";
-import { PageHeader, StatusChip, TableSkeleton, RS } from "../components/ui.jsx";
+import {
+  PageHeader,
+  StatusChip,
+  TableSkeleton,
+  RS,
+  PAGE_SIZE,
+  PAGE_SIZE_OPTIONS,
+  usePaged,
+  ListPagination,
+} from "../components/ui.jsx";
 
 function MetricCard({ label, value }) {
   return (
@@ -34,13 +43,15 @@ function MetricCard({ label, value }) {
   );
 }
 
+const EMPTY = [];
+
 export default function Referrals() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
 
   // client-side pagination for the two tables
   const [ordersPage, setOrdersPage] = useState(0);
-  const [ordersRpp, setOrdersRpp] = useState(10);
+  const [ordersRpp, setOrdersRpp] = useState(PAGE_SIZE);
 
   useEffect(() => {
     api("/api/referrals")
@@ -48,10 +59,13 @@ export default function Referrals() {
       .catch((e) => setError(e.message));
   }, []);
 
+  // Hooks must run before the early return below.
+  const earnersPaged = usePaged(data?.earners ?? EMPTY);
+
   if (error) return <Alert severity="error">{error}</Alert>;
 
   const loading = !data;
-  const earners = data?.earners ?? [];
+  const earners = data?.earners ?? EMPTY;
   const referralOrders = data?.referralOrders ?? [];
   const totalPaid = earners.reduce((s, e) => s + (e.walletBalance || 0), 0);
 
@@ -91,7 +105,7 @@ export default function Referrals() {
         </Grid>
       </Grid>
 
-      <Typography variant="h6" sx={{ mt: 4, mb: 1.5 }}>
+      <Typography variant="h6" sx={{ mt: 3, mb: 1 }}>
         Top earners
       </Typography>
       <Card>
@@ -116,7 +130,7 @@ export default function Referrals() {
                   </TableCell>
                 </TableRow>
               ) : (
-                earners.map((e) => (
+                earnersPaged.rows.map((e) => (
                   <TableRow key={e._id} hover>
                     <TableCell sx={{ fontWeight: 600 }}>{e.name}</TableCell>
                     <TableCell>
@@ -142,9 +156,10 @@ export default function Referrals() {
             </TableBody>
           </Table>
         </TableContainer>
+        {!loading && earners.length > 0 && <ListPagination {...earnersPaged.paginationProps} />}
       </Card>
 
-      <Typography variant="h6" sx={{ mt: 4, mb: 1.5 }}>
+      <Typography variant="h6" sx={{ mt: 3, mb: 1 }}>
         Referral orders
       </Typography>
       <Card>
@@ -200,7 +215,7 @@ export default function Referrals() {
               setOrdersRpp(parseInt(e.target.value, 10));
               setOrdersPage(0);
             }}
-            rowsPerPageOptions={[10, 25, 50]}
+            rowsPerPageOptions={PAGE_SIZE_OPTIONS}
           />
         )}
       </Card>

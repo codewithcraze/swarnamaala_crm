@@ -1,6 +1,41 @@
-import { Chip, Box, Typography, Skeleton, TableRow, TableCell } from "@mui/material";
+import { useEffect, useState } from "react";
+import { Chip, Box, Typography, Skeleton, TableRow, TableCell, TablePagination } from "@mui/material";
 
 export const RS = "\u20B9";
+
+// Every list shows this many rows by default.
+export const PAGE_SIZE = 10;
+export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+
+// Client-side paging for lists loaded in full. Jumps back a page if the
+// current one becomes empty (e.g. after deleting its last row).
+export function usePaged(items, initialSize = PAGE_SIZE) {
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(initialSize);
+  const lastPage = Math.max(0, Math.ceil(items.length / rowsPerPage) - 1);
+  useEffect(() => {
+    if (page > lastPage) setPage(lastPage);
+  }, [page, lastPage]);
+  const start = Math.min(page, lastPage) * rowsPerPage;
+  return {
+    rows: items.slice(start, start + rowsPerPage),
+    paginationProps: {
+      count: items.length,
+      page: Math.min(page, lastPage),
+      rowsPerPage,
+      onPageChange: (_e, p) => setPage(p),
+      onRowsPerPageChange: (e) => {
+        setRowsPerPage(parseInt(e.target.value, 10));
+        setPage(0);
+      },
+    },
+  };
+}
+
+// Table footer pagination with the shared defaults.
+export function ListPagination(props) {
+  return <TablePagination component="div" rowsPerPageOptions={PAGE_SIZE_OPTIONS} {...props} />;
+}
 
 // Map order/payment status -> MUI chip color + label.
 const STATUS_COLOR = {
@@ -51,14 +86,14 @@ export function PageHeader({ title, subtitle, action }) {
       sx={{
         display: "flex",
         flexWrap: "wrap",
-        gap: 2,
-        alignItems: "flex-start",
+        gap: 1.5,
+        alignItems: "center",
         justifyContent: "space-between",
-        mb: 3,
+        mb: 2,
       }}
     >
-      <Box>
-        <Typography variant="h4" sx={{ mb: subtitle ? 0.5 : 0 }}>
+      <Box sx={{ minWidth: 0 }}>
+        <Typography variant="h4" sx={{ mb: subtitle ? 0.25 : 0 }}>
           {title}
         </Typography>
         {subtitle && (
@@ -98,8 +133,12 @@ export const SOURCES = [
   { id: "myntra", label: "Myntra" },
   { id: "instagram", label: "Instagram" },
   { id: "whatsapp", label: "WhatsApp" },
+  { id: "self", label: "Self" },
   { id: "other", label: "Other" },
 ];
+
+// Sources offered in the Manual orders section.
+export const MANUAL_SOURCES = ["meesho", "flipkart", "amazon", "self"];
 
 export function sourceLabel(id) {
   return SOURCES.find((s) => s.id === (id || "website"))?.label ?? id;
@@ -118,6 +157,7 @@ export const SOURCE_COLOR = {
   myntra: "#e72e77",
   instagram: "#c13584",
   whatsapp: "#128c3a",
+  self: "#0f766e",
   other: "#64748b",
 };
 

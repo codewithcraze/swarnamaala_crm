@@ -6,10 +6,12 @@ import Dashboard from "./pages/Dashboard.jsx";
 import Users from "./pages/Users.jsx";
 import Orders from "./pages/Orders.jsx";
 import OrderDetail from "./pages/OrderDetail.jsx";
+import ManualOrders from "./pages/ManualOrders.jsx";
 import PrintSheet from "./pages/PrintSheet.jsx";
 import Campaigns from "./pages/Campaigns.jsx";
 import CampaignEditor from "./pages/CampaignEditor.jsx";
 import Media from "./pages/Media.jsx";
+import Agents from "./pages/Agents.jsx";
 import Referrals from "./pages/Referrals.jsx";
 import Coupons from "./pages/Coupons.jsx";
 import Blogs from "./pages/Blogs.jsx";
@@ -42,8 +44,10 @@ export default function App() {
         <Route path="/users" element={<Users />} />
         <Route path="/orders" element={<Orders />} />
         <Route path="/orders/:id" element={<OrderDetail />} />
+        <Route path="/manual-orders" element={<ManualOrders />} />
         <Route path="/referrals" element={<Referrals />} />
         <Route path="/coupons" element={<Coupons />} />
+        <Route path="/agents" element={<Agents />} />
         <Route path="/campaigns" element={<Campaigns />} />
         <Route path="/campaigns/:id" element={<CampaignEditor />} />
         <Route path="/media" element={<Media />} />

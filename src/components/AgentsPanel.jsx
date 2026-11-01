@@ -12,7 +12,6 @@ import {
   MenuItem,
   Skeleton,
   Stack,
-  TextField,
   Typography,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
@@ -20,43 +19,13 @@ import MoreVertIcon from "@mui/icons-material/MoreVert";
 import { api } from "../api.js";
 import { RS } from "./ui.jsx";
 import { useAgents } from "./agents.jsx";
+import AgentDialog from "./AgentDialog.jsx";
 
 // Dashboard section: add agents and see how many orders each one brought in.
 export default function AgentsPanel() {
-  const { agents, setAgents, unassigned, loading, error, reload } = useAgents();
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [adding, setAdding] = useState(false);
-  const [formError, setFormError] = useState("");
+  const { agents, unassigned, loading, error, reload } = useAgents();
+  const [dialog, setDialog] = useState({ open: false, agent: null });
   const [menu, setMenu] = useState(null); // { el, agent }
-
-  async function add(e) {
-    e.preventDefault();
-    if (!name.trim()) return;
-    setAdding(true);
-    setFormError("");
-    try {
-      const d = await api("/api/agents", { method: "POST", body: JSON.stringify({ name, phone }) });
-      setAgents((list) => [...list, d.agent].sort((a, b) => a.name.localeCompare(b.name)));
-      setName("");
-      setPhone("");
-    } catch (err) {
-      setFormError(err.message);
-    } finally {
-      setAdding(false);
-    }
-  }
-
-  async function rename(agent) {
-    const next = window.prompt("Agent name", agent.name);
-    if (!next || next.trim() === agent.name) return;
-    try {
-      await api(`/api/agents/${agent._id}`, { method: "PATCH", body: JSON.stringify({ name: next }) });
-      reload();
-    } catch (err) {
-      alert(err.message);
-    }
-  }
 
   async function toggleActive(agent) {
     try {
@@ -82,17 +51,18 @@ export default function AgentsPanel() {
     <Box>
       <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ sm: "center" }} spacing={1} sx={{ mt: 4, mb: 1.5 }}>
         <Typography variant="h6">Orders by agent</Typography>
-        <Box component="form" onSubmit={add} sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-          <TextField size="small" label="Agent name" value={name} onChange={(e) => setName(e.target.value)} sx={{ width: { xs: "100%", sm: 180 } }} />
-          <TextField size="small" label="Phone (optional)" value={phone} onChange={(e) => setPhone(e.target.value)} sx={{ width: { xs: "100%", sm: 150 } }} />
-          <Button type="submit" variant="contained" startIcon={<AddIcon />} disabled={adding || !name.trim()}>
+        <Stack direction="row" spacing={1}>
+          <Button variant="outlined" component={RouterLink} to="/agents">
+            Manage agents
+          </Button>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setDialog({ open: true, agent: null })}>
             Add agent
           </Button>
-        </Box>
+        </Stack>
       </Stack>
-      {(formError || error) && (
-        <Alert severity="error" sx={{ mb: 1.5 }} onClose={formError ? () => setFormError("") : undefined}>
-          {formError || error}
+      {error && (
+        <Alert severity="error" sx={{ mb: 1.5 }}>
+          {error}
         </Alert>
       )}
 
@@ -136,17 +106,27 @@ export default function AgentsPanel() {
       )}
       {!loading && agents.length === 0 && (
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          Add your agents above, then pick the agent on each order (in the orders list or the order page).
+          No agents yet. Click <b>Add agent</b> to register one, then pick the agent on each order (in the orders list or the order page).
         </Typography>
       )}
 
       <Menu anchorEl={menu?.el} open={!!menu} onClose={() => setMenu(null)}>
-        <MenuItem onClick={() => { rename(menu.agent); setMenu(null); }}>Rename</MenuItem>
+        <MenuItem onClick={() => { setDialog({ open: true, agent: menu.agent }); setMenu(null); }}>Edit details</MenuItem>
         <MenuItem onClick={() => { toggleActive(menu.agent); setMenu(null); }}>
           {menu?.agent?.active === false ? "Mark active" : "Mark inactive"}
         </MenuItem>
         <MenuItem sx={{ color: "error.main" }} onClick={() => { remove(menu.agent); setMenu(null); }}>Delete</MenuItem>
       </Menu>
+
+      <AgentDialog
+        open={dialog.open}
+        agent={dialog.agent}
+        onClose={() => setDialog({ open: false, agent: null })}
+        onSaved={() => {
+          setDialog({ open: false, agent: null });
+          reload();
+        }}
+      />
     </Box>
   );
 }

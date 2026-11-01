@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, Link as RouterLink, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -29,7 +29,9 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import PrintOutlinedIcon from "@mui/icons-material/PrintOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import LockResetOutlinedIcon from "@mui/icons-material/LockResetOutlined";
-import { api, downloadBlob } from "../api.js";
+import VpnKeyOutlinedIcon from "@mui/icons-material/VpnKeyOutlined";
+import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
+import { api, apiUpload, downloadBlob } from "../api.js";
 import {
   PageHeader,
   StatusChip,
@@ -39,7 +41,7 @@ import {
   sourceLabel,
   isMarketplaceOrder,
 } from "../components/ui.jsx";
-import { EditOrderDialog, EditCustomerDialog, ResetPasswordDialog, DeleteUserDialog } from "../components/OrderDialogs.jsx";
+import { EditOrderDialog, EditCustomerDialog, ResetPasswordDialog, DeleteUserDialog, GenerateCredentialsDialog } from "../components/OrderDialogs.jsx";
 import OrderNotes from "../components/OrderNotes.jsx";
 import { useAgents, AgentSelect, assignAgent } from "../components/agents.jsx";
 
@@ -75,6 +77,90 @@ function CardHead({ title, action }) {
   );
 }
 
+// Shipping label PDF: open, upload/replace, or remove.
+function LabelCard({ order, onChange, onToast }) {
+  const inputRef = useRef(null);
+  const [busy, setBusy] = useState(false);
+
+  async function save(labelUrl) {
+    const d = await api(`/api/orders/${order._id}/label`, { method: "PATCH", body: JSON.stringify({ labelUrl }) });
+    onChange(d.labelUrl);
+  }
+
+  async function choose(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.type !== "application/pdf") return alert("The label must be a PDF file.");
+    setBusy(true);
+    try {
+      const { url } = await apiUpload("/api/upload/label", file);
+      await save(url);
+      onToast("Label saved.");
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    if (!window.confirm("Remove the label PDF from this order?")) return;
+    setBusy(true);
+    try {
+      await save(null);
+      onToast("Label removed.");
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardContent>
+        <SectionTitle>Shipping label</SectionTitle>
+        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+          {order.labelUrl ? (
+            <>
+              <Button
+                size="small"
+                variant="contained"
+                color="error"
+                startIcon={<PictureAsPdfOutlinedIcon />}
+                component="a"
+                href={imageSrc(order.labelUrl)}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open PDF
+              </Button>
+              <Button size="small" variant="outlined" disabled={busy} onClick={() => inputRef.current?.click()}>
+                Replace
+              </Button>
+              <Button size="small" color="error" disabled={busy} onClick={remove}>
+                Remove
+              </Button>
+            </>
+          ) : (
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={busy ? <CircularProgress size={14} /> : <PictureAsPdfOutlinedIcon />}
+              disabled={busy}
+              onClick={() => inputRef.current?.click()}
+            >
+              Upload label PDF
+            </Button>
+          )}
+        </Stack>
+        <input ref={inputRef} type="file" accept="application/pdf" hidden onChange={choose} />
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function OrderDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -90,6 +176,7 @@ export default function OrderDetail() {
   const [editCustomerOpen, setEditCustomerOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const [deleteUserOpen, setDeleteUserOpen] = useState(false);
+  const [credsOpen, setCredsOpen] = useState(false);
   const [toast, setToast] = useState("");
   const { agents } = useAgents();
 
@@ -153,7 +240,8 @@ export default function OrderDetail() {
     setDeleting(true);
     try {
       await api(`/api/orders/${id}`, { method: "DELETE" });
-      navigate("/orders", { replace: true });
+      const separate = ["manual", "photo-link"].includes(order?.entry);
+      navigate(separate ? "/manual-orders" : "/orders", { replace: true });
     } catch (e) {
       alert(e.message);
       setDeleting(false);
@@ -192,17 +280,21 @@ export default function OrderDetail() {
 
   const images = order.images || [];
   const customer = order.user;
+  const isManual = order.entry === "manual";
+  // Manual and send-photos orders are listed in the separate section.
+  const inSeparateList = isManual || order.entry === "photo-link";
+  const backTo = inSeparateList ? "/manual-orders" : "/orders";
 
   return (
     <Box>
       <Link
         component={RouterLink}
-        to="/orders"
+        to={backTo}
         underline="hover"
         color="text.secondary"
         sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, mb: 2 }}
       >
-        <ArrowBackIcon fontSize="small" /> Back to orders
+        <ArrowBackIcon fontSize="small" /> Back to {inSeparateList ? "marketplace orders" : "orders"}
       </Link>
 
       <PageHeader
@@ -238,19 +330,44 @@ export default function OrderDetail() {
                 <CardHead
                   title="Customer"
                   action={
-                    customer?._id && (
+                    customer?._id ? (
                       <Button size="small" startIcon={<EditOutlinedIcon />} onClick={() => setEditCustomerOpen(true)}>
                         Edit
                       </Button>
-                    )
+                    ) : isManual ? (
+                      <Button size="small" startIcon={<EditOutlinedIcon />} onClick={() => setEditOrderOpen(true)}>
+                        Edit
+                      </Button>
+                    ) : null
                   }
                 />
-                <Typography sx={{ fontWeight: 600, mt: 0.5 }}>{customer?.name || "—"}</Typography>
+                <Typography sx={{ fontWeight: 600, mt: 0.5 }}>{customer?.name || order.customerName || "—"}</Typography>
+                {!customer?._id && order.customerPhone && (
+                  <Typography variant="body2" color="text.secondary">{order.customerPhone}</Typography>
+                )}
+                {!customer?._id && (
+                  <>
+                    <Typography variant="caption" color="text.secondary" display="block">
+                      {isManual
+                        ? "No login yet. Added manually in the CRM."
+                        : "No login yet. Only the name was collected on the photo page."}
+                    </Typography>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      startIcon={<VpnKeyOutlinedIcon />}
+                      onClick={() => setCredsOpen(true)}
+                      sx={{ mt: 1.5 }}
+                    >
+                      Generate credentials
+                    </Button>
+                  </>
+                )}
                 <Typography variant="body2" color="text.secondary" sx={{ wordBreak: "break-all" }}>
                   {customer?.email}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {customer?.phone || order.shippingAddress?.phone}
+                  {customer?.phone || (!order.customerPhone && order.shippingAddress?.phone)}
                 </Typography>
                 {customer?._id && (
                   <Button
@@ -289,11 +406,22 @@ export default function OrderDetail() {
                       {order.externalOrderId || "—"}
                     </Box>
                   </Typography>
+                  {isManual && order.total > 0 && (
+                    <Typography variant="body2" color="text.secondary">
+                      Amount: <Box component="b" sx={{ color: "text.primary" }}>{RS}{order.total}</Box>
+                    </Typography>
+                  )}
                   <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-                    Paid and shipped through {sourceLabel(order.source)}. Photos sent via the public upload link.
+                    {isManual
+                      ? `Added manually${order.createdBy ? ` by ${order.createdBy}` : ""}.`
+                      : `Paid and shipped through ${sourceLabel(order.source)}. Photos sent via the public upload link.`}
                   </Typography>
                 </CardContent>
               </Card>
+            )}
+
+            {(isManual || order.labelUrl) && (
+              <LabelCard order={order} onChange={(labelUrl) => setOrder((o) => ({ ...o, labelUrl }))} onToast={setToast} />
             )}
 
             {order.shippingAddress?.line1 && (
@@ -579,8 +707,21 @@ export default function OrderDetail() {
         }}
       />
 
-      <DeleteUserDialog
-        open={deleteUserOpen}
+      <GenerateCredentialsDialog
+        open={credsOpen}
+        order={order}
+        onClose={() => setCredsOpen(false)}
+        onDone={(d) => {
+          setCredsOpen(false);
+          setOrder((o) => ({ ...o, user: d.user }));
+          setToast(
+            d.created
+              ? `Login created. Password emailed to ${d.user.email}.`
+              : `${d.user.email} already had an account. Order linked to it; password unchanged.`
+          );
+        }}
+      />
+      <DeleteUserDialog        open={deleteUserOpen}
         user={customer}
         onClose={() => setDeleteUserOpen(false)}
         onDeleted={(d) => {

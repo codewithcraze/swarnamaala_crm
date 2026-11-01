@@ -24,7 +24,7 @@ import LockResetOutlinedIcon from "@mui/icons-material/LockResetOutlined";
 import { DeleteUserDialog, EditCustomerDialog, ResetPasswordDialog } from "../components/OrderDialogs.jsx";
 import SearchIcon from "@mui/icons-material/Search";
 import { api } from "../api.js";
-import { PageHeader, TableSkeleton, RS } from "../components/ui.jsx";
+import { PageHeader, TableSkeleton, RS, PAGE_SIZE, PAGE_SIZE_OPTIONS } from "../components/ui.jsx";
 
 function formatDate(date) {
   return new Date(date).toLocaleDateString("en-IN", {
@@ -38,7 +38,7 @@ export default function Users() {
   const [users, setUsers] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(20);
+  const [rowsPerPage, setRowsPerPage] = useState(PAGE_SIZE);
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
   const [error, setError] = useState("");
@@ -197,7 +197,7 @@ export default function Users() {
             setRowsPerPage(parseInt(e.target.value, 10));
             setPage(0);
           }}
-          rowsPerPageOptions={[10, 20, 50, 100]}
+          rowsPerPageOptions={PAGE_SIZE_OPTIONS}
         />
       </Card>
 

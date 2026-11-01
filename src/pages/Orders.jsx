@@ -45,6 +45,8 @@ import {
   sourceLabel,
   sourceColor,
   isMarketplaceOrder,
+  PAGE_SIZE,
+  PAGE_SIZE_OPTIONS,
 } from "../components/ui.jsx";
 import { useAgents, AgentSelect, assignAgent } from "../components/agents.jsx";
 
@@ -67,7 +69,7 @@ export default function Orders() {
   const [orders, setOrders] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0); // zero-based for MUI
-  const [rowsPerPage, setRowsPerPage] = useState(20);
+  const [rowsPerPage, setRowsPerPage] = useState(PAGE_SIZE);
   const [filter, setFilter] = useState("");
   const [paymentFilter, setPaymentFilter] = useState("");
   // Allow /orders?source=meesho (e.g. from the dashboard) to pre-filter.
@@ -355,8 +357,13 @@ export default function Orders() {
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                          {o.user?.name || "—"}
+                          {o.user?.name || o.customerName || "—"}
                         </Typography>
+                        {!o.user && (
+                          <Typography variant="caption" sx={{ color: "warning.dark", display: "block" }}>
+                            No login yet
+                          </Typography>
+                        )}
                         <Typography variant="caption" color="text.secondary" display="block">
                           {o.user?.email}
                         </Typography>
@@ -523,7 +530,7 @@ export default function Orders() {
             setRowsPerPage(parseInt(e.target.value, 10));
             setPage(0);
           }}
-          rowsPerPageOptions={[10, 20, 50, 100]}
+          rowsPerPageOptions={PAGE_SIZE_OPTIONS}
         />
       </Card>
 
